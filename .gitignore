@@ -4,6 +4,7 @@
 *.out
 bin/
 build/bin/
+build/windows/
 
 # Wails
 frontend/wailsjs/
