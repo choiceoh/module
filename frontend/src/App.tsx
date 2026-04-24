@@ -524,7 +524,9 @@ export default function App() {
                         <AutoComplete
                           value={projectName}
                           onChange={(v) => setProjectName(v)}
-                          options={master.recent_projects.map((p) => ({ value: p }))}
+                          options={(master.recent_projects ?? []).map((p) => ({
+                            value: p,
+                          }))}
                           placeholder="진달래2"
                         />
                       </Form.Item>

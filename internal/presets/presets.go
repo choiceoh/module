@@ -48,7 +48,11 @@ func path() (string, error) {
 }
 
 func Load() (*Store, error) {
-	s := &Store{Masters: map[string]MasterPreset{}, Settings: defaultSettings()}
+	s := &Store{
+		Masters:        map[string]MasterPreset{},
+		RecentProjects: []string{},
+		Settings:       defaultSettings(),
+	}
 	p, err := path()
 	if err != nil {
 		return s, nil
@@ -60,6 +64,9 @@ func Load() (*Store, error) {
 	_ = json.Unmarshal(data, s)
 	if s.Masters == nil {
 		s.Masters = map[string]MasterPreset{}
+	}
+	if s.RecentProjects == nil {
+		s.RecentProjects = []string{}
 	}
 	if s.Settings.VLLMBaseURL == "" {
 		s.Settings.VLLMBaseURL = defaultSettings().VLLMBaseURL
