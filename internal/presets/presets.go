@@ -21,6 +21,7 @@ type Settings struct {
 type Store struct {
 	Masters        map[string]MasterPreset `json:"masters"`
 	RecentProjects []string                `json:"recent_projects"`
+	RecentPresets  []MasterPreset          `json:"recent_presets"`
 	Settings       Settings                `json:"settings"`
 
 	mu sync.Mutex
@@ -51,6 +52,7 @@ func Load() (*Store, error) {
 	s := &Store{
 		Masters:        map[string]MasterPreset{},
 		RecentProjects: []string{},
+		RecentPresets:  []MasterPreset{},
 		Settings:       defaultSettings(),
 	}
 	p, err := path()
@@ -67,6 +69,9 @@ func Load() (*Store, error) {
 	}
 	if s.RecentProjects == nil {
 		s.RecentProjects = []string{}
+	}
+	if s.RecentPresets == nil {
+		s.RecentPresets = []MasterPreset{}
 	}
 	if s.Settings.VLLMBaseURL == "" {
 		s.Settings.VLLMBaseURL = defaultSettings().VLLMBaseURL
@@ -127,6 +132,27 @@ func (s *Store) PushRecentProject(name string) {
 		filtered = filtered[:10]
 	}
 	s.RecentProjects = filtered
+}
+
+func (s *Store) PushRecentPreset(p MasterPreset) {
+	if p.ModuleType == "" && p.CellType == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	filtered := make([]MasterPreset, 0, len(s.RecentPresets)+1)
+	filtered = append(filtered, p)
+	for _, e := range s.RecentPresets {
+		if e.ModuleType == p.ModuleType && e.CellType == p.CellType {
+			continue
+		}
+		filtered = append(filtered, e)
+	}
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+	s.RecentPresets = filtered
 }
 
 func (s *Store) GetSettings() Settings {

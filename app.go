@@ -91,14 +91,15 @@ func (a *App) ExportExcel(rows []schema.ScanResult) (string, error) {
 }
 
 type MasterInfo struct {
-	Path      string                 `json:"path"`
-	Filename  string                 `json:"filename"`
-	Sheets    []string               `json:"sheets"`
-	TotalRows int                    `json:"total_rows"`
-	IndexSize int                    `json:"index_size"`
-	Preset    presets.MasterPreset   `json:"preset"`
-	HasPreset bool                   `json:"has_preset"`
-	Recent    []string               `json:"recent_projects"`
+	Path          string                 `json:"path"`
+	Filename      string                 `json:"filename"`
+	Sheets        []string               `json:"sheets"`
+	TotalRows     int                    `json:"total_rows"`
+	IndexSize     int                    `json:"index_size"`
+	Preset        presets.MasterPreset   `json:"preset"`
+	HasPreset     bool                   `json:"has_preset"`
+	Recent        []string               `json:"recent_projects"`
+	RecentPresets []presets.MasterPreset `json:"recent_presets"`
 }
 
 func (a *App) PickAndLoadMaster() (*MasterInfo, error) {
@@ -128,12 +129,19 @@ func (a *App) LoadMaster(path string) (*MasterInfo, error) {
 	a.mu.Unlock()
 
 	info := &MasterInfo{
-		Path:      summary.Path,
-		Filename:  filepath.Base(summary.Path),
-		Sheets:    summary.Sheets,
-		TotalRows: summary.TotalRows,
-		IndexSize: summary.IndexSize,
-		Recent:    a.presets.RecentProjects,
+		Path:          summary.Path,
+		Filename:      filepath.Base(summary.Path),
+		Sheets:        summary.Sheets,
+		TotalRows:     summary.TotalRows,
+		IndexSize:     summary.IndexSize,
+		Recent:        a.presets.RecentProjects,
+		RecentPresets: a.presets.RecentPresets,
+	}
+	if info.Recent == nil {
+		info.Recent = []string{}
+	}
+	if info.RecentPresets == nil {
+		info.RecentPresets = []presets.MasterPreset{}
 	}
 	if p, ok := a.presets.GetMaster(path); ok {
 		info.Preset = p
@@ -195,13 +203,15 @@ func (a *App) BuildReport(req BuildRequest) (*report.BuildResult, error) {
 		return nil, err
 	}
 
+	preset := presets.MasterPreset{
+		ModuleType: req.ModuleType,
+		CellType:   req.CellType,
+	}
 	if req.SavePreset && book.Path != "" {
-		a.presets.PutMaster(book.Path, presets.MasterPreset{
-			ModuleType: req.ModuleType,
-			CellType:   req.CellType,
-		})
+		a.presets.PutMaster(book.Path, preset)
 	}
 	a.presets.PushRecentProject(req.ProjectName)
+	a.presets.PushRecentPreset(preset)
 	_ = a.presets.Save()
 
 	return res, nil

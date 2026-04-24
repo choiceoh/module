@@ -14,6 +14,7 @@ export type MasterInfo = {
   preset: MasterPreset;
   has_preset: boolean;
   recent_projects: string[];
+  recent_presets: MasterPreset[];
 };
 
 export type BuildRequest = {
