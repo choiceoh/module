@@ -11,6 +11,7 @@ import (
 	_ "image/jpeg"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/disintegration/imaging"
@@ -219,6 +220,164 @@ Rules:
 // sends each to the VLM. Vision models typically downscale inputs to
 // ~1024x1024, so a 3000px-tall packing list has tiny barcode text after
 // resize. Tiling gives the model a larger effective resolution per call.
+// ExtractMissingSerials asks the VLM to read ONLY serials that aren't in
+// the given known-list. Dramatically reduces output-token count when
+// barcode already caught most, since the model only emits the few gaps.
+func (c *Client) ExtractMissingSerials(ctx context.Context, imageData []byte, mimeType string, known []string) (*SerialExtract, error) {
+	img, _, err := image.Decode(bytes.NewReader(imageData))
+	if err != nil {
+		return nil, fmt.Errorf("decode image for tiling: %w", err)
+	}
+	bounds := img.Bounds()
+	h := bounds.Dy()
+	w := bounds.Dx()
+
+	tiles := 1
+	switch {
+	case h > 2000:
+		tiles = 3
+	case h > 1200:
+		tiles = 2
+	}
+
+	var tilePNGs [][]byte
+	if tiles == 1 {
+		tilePNGs = [][]byte{imageData}
+	} else {
+		sliceH := h / tiles
+		overlap := sliceH / 4
+		for i := 0; i < tiles; i++ {
+			y0 := i*sliceH - overlap
+			y1 := (i+1)*sliceH + overlap
+			if y0 < 0 {
+				y0 = 0
+			}
+			if y1 > h {
+				y1 = h
+			}
+			if i == tiles-1 {
+				y1 = h
+			}
+			crop := imaging.Crop(img, image.Rect(0, y0, w, y1))
+			var buf bytes.Buffer
+			if err := png.Encode(&buf, crop); err != nil {
+				continue
+			}
+			tilePNGs = append(tilePNGs, buf.Bytes())
+		}
+	}
+
+	knownSet := make(map[string]struct{}, len(known))
+	for _, k := range known {
+		knownSet[k] = struct{}{}
+	}
+
+	merged := &SerialExtract{}
+	for i, tile := range tilePNGs {
+		mime := mimeType
+		if tiles > 1 {
+			mime = "image/png"
+		}
+		ext, err := c.extractMissingOnce(ctx, tile, mime, known, i+1, tiles)
+		if err != nil {
+			if i == 0 && len(tilePNGs) == 1 {
+				return nil, err
+			}
+			continue
+		}
+		if merged.PalletSN == "" && ext.PalletSN != "" {
+			merged.PalletSN = ext.PalletSN
+		}
+		for _, m := range ext.Modules {
+			s := strings.TrimSpace(m.Serial)
+			if s == "" {
+				continue
+			}
+			if _, skip := knownSet[s]; skip {
+				continue
+			}
+			merged.Modules = append(merged.Modules, m)
+			knownSet[s] = struct{}{}
+		}
+	}
+	return merged, nil
+}
+
+func (c *Client) extractMissingOnce(ctx context.Context, imageData []byte, mimeType string, known []string, tileIdx, tileCount int) (*SerialExtract, error) {
+	b64 := base64.StdEncoding.EncodeToString(imageData)
+	dataURL := fmt.Sprintf("data:%s;base64,%s", mimeType, b64)
+
+	knownBlob := "(none)"
+	if len(known) > 0 {
+		knownBlob = "- " + strings.Join(known, "\n- ")
+	}
+	userMsg := fmt.Sprintf("Known serials already found by barcode scan (do NOT repeat these):\n%s\n\nRead any additional module serials visible in the image that are NOT in the list above. Also extract the pallet_sn if visible. Output JSON with only the missing entries.", knownBlob)
+	if tileCount > 1 {
+		userMsg = fmt.Sprintf("Tile %d of %d.\n", tileIdx, tileCount) + userMsg
+	}
+
+	req := chatRequest{
+		Model: c.Model,
+		Messages: []chatMessage{
+			{
+				Role:    "system",
+				Content: []content{{Type: "text", Text: serialExtractPrompt}},
+			},
+			{
+				Role: "user",
+				Content: []content{
+					{Type: "text", Text: userMsg},
+					{Type: "image_url", ImageURL: &imageURL{URL: dataURL}},
+				},
+			},
+		},
+		Temperature:    0.0,
+		MaxTokens:      2048,
+		ResponseFormat: &responseFormat{Type: "json_object"},
+		GuidedJSON:     json.RawMessage(serialExtractSchema),
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	url := c.BaseURL + "/chat/completions"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTP.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("vllm request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("vllm %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var parsed chatResponse
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, fmt.Errorf("decode response: %w (body=%s)", err, string(raw))
+	}
+	if parsed.Error != nil {
+		return nil, fmt.Errorf("vllm error: %s", parsed.Error.Message)
+	}
+	if len(parsed.Choices) == 0 {
+		return nil, fmt.Errorf("no choices returned")
+	}
+
+	var ext SerialExtract
+	if err := json.Unmarshal([]byte(parsed.Choices[0].Message.Content), &ext); err != nil {
+		return nil, fmt.Errorf("decode serials json: %w (content=%s)", err, parsed.Choices[0].Message.Content)
+	}
+	return &ext, nil
+}
+
 func (c *Client) ExtractSerials(ctx context.Context, imageData []byte, mimeType string) (*SerialExtract, error) {
 	img, _, err := image.Decode(bytes.NewReader(imageData))
 	if err != nil {
