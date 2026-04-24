@@ -18,6 +18,7 @@ import (
 	"module-scanner/internal/barcode"
 	"module-scanner/internal/excel"
 	"module-scanner/internal/masterbook"
+	"module-scanner/internal/ocr"
 	"module-scanner/internal/presets"
 	"module-scanner/internal/report"
 	"module-scanner/internal/schema"
@@ -65,46 +66,83 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	var (
 		barcodeHits []barcode.Hit
 		barcodeErr  error
-		vllmEntries []ai.ModuleEntry
-		vllmPallet  string
-		vllmErr     error
+		ocrSerials  []string
+		ocrErr      error
 	)
 
-	a.mu.Lock()
-	aiClient := a.aiClient
-	a.mu.Unlock()
-
-	// Run barcode and vLLM in parallel. vLLM is much slower (model
-	// inference is the bottleneck) so wall time = max(barcode, vLLM)
-	// when vLLM is enabled, instead of sum.
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		hits, err := barcode.DecodeAll(data)
-		if err != nil {
-			barcodeErr = err
-			return
-		}
-		barcodeHits = hits
-	}()
-	if aiClient != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-			ext, err := aiClient.ExtractSerials(ctx, data, detectMIME(data))
-			if err != nil {
-				vllmErr = err
-				log.Printf("vllm extract failed for %s: %v", filename, err)
-				return
-			}
-			vllmEntries = ext.Modules
-			vllmPallet = ext.PalletSN
-		}()
+	// Primary: barcode (checksum-validated, slow but reliable).
+	bcHits, err := barcode.DecodeAll(data)
+	if err != nil {
+		barcodeErr = err
+	} else {
+		barcodeHits = bcHits
 	}
-	wg.Wait()
+
+	// Count module-length hits.
+	moduleCount := 0
+	for _, h := range barcodeHits {
+		if len(h.Text) >= 18 {
+			moduleCount++
+		}
+	}
+
+	// Dominant length + prefix among barcode module serials — used to
+	// filter OCR candidates. OCR has no checksum; we only accept OCR
+	// results that match both the exact length AND the common prefix
+	// of already-validated barcode serials.
+	dominantLen := 0
+	var barcodeSerials []string
+	if moduleCount > 0 {
+		lenCount := map[int]int{}
+		for _, h := range barcodeHits {
+			if len(h.Text) >= 18 {
+				lenCount[len(h.Text)]++
+				barcodeSerials = append(barcodeSerials, h.Text)
+			}
+		}
+		topCount := 0
+		for l, c := range lenCount {
+			if c > topCount {
+				topCount = c
+				dominantLen = l
+			}
+		}
+	}
+	// Use prefix shared by ALL barcode serials so we don't over-filter
+	// OCR candidates that happen to differ in a middle digit.
+	dominantPrefix := longestCommonPrefix(barcodeSerials, len(barcodeSerials))
+
+	// Gap-fill: if barcode didn't reach target, run PaddleOCR. OCR has
+	// no checksum, so we sliding-window extract substrings of the exact
+	// barcode-dominant length and require them to match the dominant
+	// prefix before accepting.
+	const target = 36
+	if moduleCount < target && dominantLen > 0 {
+		results, err := ocr.Recognize(data)
+		if err != nil {
+			ocrErr = err
+			log.Printf("ocr recognize failed for %s: %v", filename, err)
+		} else {
+			raw := ocr.ExtractSerialCandidates(results, dominantLen, 40)
+			seen := map[string]struct{}{}
+			for _, s := range raw {
+				if len(s) < dominantLen {
+					continue
+				}
+				for i := 0; i+dominantLen <= len(s); i++ {
+					sub := s[i : i+dominantLen]
+					if dominantPrefix != "" && !strings.HasPrefix(sub, dominantPrefix) {
+						continue
+					}
+					if _, dup := seen[sub]; dup {
+						continue
+					}
+					seen[sub] = struct{}{}
+					ocrSerials = append(ocrSerials, sub)
+				}
+			}
+		}
+	}
 
 	sourceBy := map[string]string{}
 	noBy := map[string]int{}
@@ -119,16 +157,13 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 			correctedBy[t] = h.RawText
 		}
 	}
-	for _, e := range vllmEntries {
-		s := strings.TrimSpace(e.Serial)
+	for _, s := range ocrSerials {
+		s = strings.TrimSpace(s)
 		if s == "" {
 			continue
 		}
 		if _, has := sourceBy[s]; !has {
-			sourceBy[s] = "vllm"
-		}
-		if _, has := noBy[s]; !has && e.No > 0 {
-			noBy[s] = e.No
+			sourceBy[s] = "ocr"
 		}
 	}
 
@@ -137,8 +172,8 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		if barcodeErr != nil {
 			msg = "no barcode: " + barcodeErr.Error()
 		}
-		if vllmErr != nil {
-			msg += "; vllm: " + vllmErr.Error()
+		if ocrErr != nil {
+			msg += "; ocr: " + ocrErr.Error()
 		}
 		return []schema.ScanResult{{Filename: filename, Error: msg}}
 	}
@@ -148,9 +183,6 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		allTexts = append(allTexts, t)
 	}
 	modules, pallet, others := barcode.Classify(allTexts)
-	if pallet == "" && vllmPallet != "" {
-		pallet = strings.TrimSpace(vllmPallet)
-	}
 
 	if len(modules) == 0 {
 		if pallet != "" {
@@ -223,6 +255,44 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		})
 	}
 	return out
+}
+
+// longestCommonPrefix returns the longest prefix shared by at least
+// minCount strings in the slice. Walks up one character at a time; at
+// each length it picks the most-common prefix of that length and checks
+// the count threshold. Used to reject OCR outputs that don't match the
+// pattern validated by barcode's checksum.
+func longestCommonPrefix(texts []string, minCount int) string {
+	if len(texts) == 0 || minCount < 1 {
+		return ""
+	}
+	minLen := len(texts[0])
+	for _, t := range texts {
+		if len(t) < minLen {
+			minLen = len(t)
+		}
+	}
+	best := ""
+	for l := 1; l <= minLen; l++ {
+		counts := map[string]int{}
+		for _, t := range texts {
+			counts[t[:l]]++
+		}
+		var topPrefix string
+		topCount := 0
+		for p, c := range counts {
+			if c > topCount {
+				topCount = c
+				topPrefix = p
+			}
+		}
+		if topCount >= minCount {
+			best = topPrefix
+		} else {
+			break
+		}
+	}
+	return best
 }
 
 func detectMIME(data []byte) string {

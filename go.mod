@@ -37,6 +37,7 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	github.com/xuri/efp v0.0.1 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
+	github.com/yalue/onnxruntime_go v1.23.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/image v0.25.0 // indirect
