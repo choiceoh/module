@@ -22,6 +22,7 @@ import {
   Col,
   Modal,
   Switch,
+  Select,
 } from "antd";
 import type { UploadFile } from "antd/es/upload/interface";
 import {
@@ -491,6 +492,33 @@ export default function App() {
                   />
                 )}
 
+                {(master.recent_presets ?? []).length > 0 && (
+                  <Form layout="vertical" style={{ marginBottom: -8 }}>
+                    <Form.Item
+                      label="이전 조합 불러오기"
+                      tooltip="과거에 썼던 Module type / Cell Type 조합을 골라 두 필드를 한번에 채울 수 있습니다."
+                    >
+                      <Select
+                        placeholder="이전 조합 선택 (선택사항)"
+                        allowClear
+                        options={(master.recent_presets ?? []).map((p, i) => ({
+                          value: `${p.module_type}|${p.cell_type}|${i}`,
+                          label: `${p.module_type || "(비어있음)"} / ${p.cell_type || "(비어있음)"}`,
+                        }))}
+                        onChange={(v) => {
+                          if (!v) return;
+                          const idx = Number(String(v).split("|").pop());
+                          const chosen = (master.recent_presets ?? [])[idx];
+                          if (chosen) {
+                            setModuleType(chosen.module_type);
+                            setCellType(chosen.cell_type);
+                          }
+                        }}
+                      />
+                    </Form.Item>
+                  </Form>
+                )}
+
                 <Form layout="vertical">
                   <AntRow gutter={16}>
                     <Col span={8}>
@@ -499,10 +527,22 @@ export default function App() {
                         required
                         tooltip="예: JKM640N-78HL4-BDV-S1"
                       >
-                        <Input
+                        <AutoComplete
                           value={moduleType}
-                          onChange={(e) => setModuleType(e.target.value)}
+                          onChange={(v) => setModuleType(v)}
+                          options={Array.from(
+                            new Set(
+                              (master.recent_presets ?? [])
+                                .map((p) => p.module_type)
+                                .filter(Boolean)
+                            )
+                          ).map((v) => ({ value: v }))}
                           placeholder="JKM640N-78HL4-BDV-S1"
+                          filterOption={(input, option) =>
+                            String(option?.value ?? "")
+                              .toLowerCase()
+                              .includes(input.toLowerCase())
+                          }
                         />
                       </Form.Item>
                     </Col>
@@ -512,10 +552,22 @@ export default function App() {
                         required
                         tooltip="예: M183R-16-C"
                       >
-                        <Input
+                        <AutoComplete
                           value={cellType}
-                          onChange={(e) => setCellType(e.target.value)}
+                          onChange={(v) => setCellType(v)}
+                          options={Array.from(
+                            new Set(
+                              (master.recent_presets ?? [])
+                                .map((p) => p.cell_type)
+                                .filter(Boolean)
+                            )
+                          ).map((v) => ({ value: v }))}
                           placeholder="M183R-16-C"
+                          filterOption={(input, option) =>
+                            String(option?.value ?? "")
+                              .toLowerCase()
+                              .includes(input.toLowerCase())
+                          }
                         />
                       </Form.Item>
                     </Col>
