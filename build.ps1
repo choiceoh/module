@@ -2,15 +2,19 @@
 #  - Works even when the project path contains non-ASCII characters
 #  - Copies sources to $env:TEMP\module-scanner-build (ASCII), builds there,
 #    then copies the resulting binaries back to <project>\build\bin\
-#  - -nsis  also builds the NSIS installer (bundles the WebView2 bootstrapper
-#    so recipients without WebView2 Runtime can still install)
+#  - -nsis   also builds the NSIS installer
+#  - -embed  embeds the ~172MB WebView2 offline installer into the NSIS package
+#            so recipients without internet can still install (recommended for
+#            intranet/air-gapped environments)
 #
 # Usage (from project root):
 #   PowerShell -ExecutionPolicy Bypass -File .\build.ps1
 #   PowerShell -ExecutionPolicy Bypass -File .\build.ps1 -nsis
+#   PowerShell -ExecutionPolicy Bypass -File .\build.ps1 -nsis -embed
 
 param(
-    [switch]$nsis
+    [switch]$nsis,
+    [switch]$embed
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +22,10 @@ $ErrorActionPreference = "Stop"
 
 $src = $PSScriptRoot
 $tmp = Join-Path $env:TEMP "module-scanner-build"
+$webviewCacheDir = "C:\temp\webview2-offline"
+$webviewCache = Join-Path $webviewCacheDir "MicrosoftEdgeWebview2Setup.exe"
+$webviewOfflineUrl = "https://go.microsoft.com/fwlink/p/?LinkId=2099617"
+$webviewOfflineMinSize = 100MB
 
 # Ensure NSIS is on PATH so wails build -nsis can find makensis
 $nsisDir = "C:\Program Files (x86)\NSIS"
@@ -25,11 +33,32 @@ if ($nsis -and (Test-Path $nsisDir) -and ($env:Path -notlike "*$nsisDir*")) {
     $env:Path = "$env:Path;$nsisDir"
 }
 
-Write-Host "[1/5] Cleaning temp build path: $tmp"
+if ($embed -and -not $nsis) {
+    Write-Error "-embed requires -nsis"
+    exit 1
+}
+
+if ($embed) {
+    if (-not (Test-Path $webviewCache) -or (Get-Item $webviewCache).Length -lt $webviewOfflineMinSize) {
+        Write-Host "Downloading WebView2 offline installer (~172MB, cached for future builds)..."
+        New-Item -ItemType Directory -Path $webviewCacheDir -Force | Out-Null
+        Invoke-WebRequest -Uri $webviewOfflineUrl -OutFile $webviewCache
+        $actualSize = (Get-Item $webviewCache).Length
+        if ($actualSize -lt $webviewOfflineMinSize) {
+            Write-Error "Downloaded WebView2 file is too small ($actualSize bytes). URL may have changed."
+            exit 1
+        }
+        Write-Host "  cached: $webviewCache ($([math]::Round($actualSize / 1MB, 1)) MB)"
+    } else {
+        Write-Host "Using cached WebView2 offline installer: $webviewCache"
+    }
+}
+
+Write-Host "[1/6] Cleaning temp build path: $tmp"
 if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
 New-Item -ItemType Directory -Path $tmp | Out-Null
 
-Write-Host "[2/5] Copying sources (excluding node_modules / build / dist / .git / .claude)"
+Write-Host "[2/6] Copying sources (excluding node_modules / build / dist / .git / .claude)"
 $robocopyArgs = @(
     $src, $tmp,
     "/E",
@@ -43,14 +72,14 @@ if ($LASTEXITCODE -ge 8) {
     exit 1
 }
 
-Write-Host "[3/5] Running 'wails build' at ASCII path$(if ($nsis) { ' (with NSIS installer)' })"
+$mode = if ($nsis)  { ' (NSIS installer)' } else { '' }
+$mode += if ($embed) { ' + WebView2 offline embedded' } else { '' }
+Write-Host "[3/6] Running 'wails build' at ASCII path$mode"
 Push-Location $tmp
 try {
-    if ($nsis) {
-        & wails build -clean -nsis
-    } else {
-        & wails build -clean
-    }
+    $wailsArgs = @("build", "-clean")
+    if ($nsis) { $wailsArgs += "-nsis" }
+    & wails @wailsArgs
     $buildExit = $LASTEXITCODE
 } finally {
     Pop-Location
@@ -60,7 +89,27 @@ if ($buildExit -ne 0) {
     exit $buildExit
 }
 
-Write-Host "[4/5] Copying artifacts back to project"
+if ($embed) {
+    Write-Host "[3b/6] Replacing 1.7MB bootstrapper with 172MB offline installer + rebuilding NSIS"
+    $installerDir = Join-Path $tmp "build\windows\installer"
+    $bootstrapper = Join-Path $installerDir "tmp\MicrosoftEdgeWebview2Setup.exe"
+    Copy-Item $webviewCache $bootstrapper -Force
+    Push-Location $installerDir
+    try {
+        & makensis `
+            "/DARG_WAILS_AMD64_BINARY=$tmp\build\bin\module-scanner.exe" `
+            "project.nsi"
+        $nsisExit = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    if ($nsisExit -ne 0) {
+        Write-Error "makensis rebuild failed with exit code $nsisExit"
+        exit $nsisExit
+    }
+}
+
+Write-Host "[4/6] Copying artifacts back to project"
 $destDir = Join-Path $src "build\bin"
 if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
 
@@ -81,12 +130,13 @@ if ($nsis) {
     }
 }
 
-Write-Host "[5/5] Removing temp path"
+Write-Host "[5/6] Removing temp path"
 Remove-Item $tmp -Recurse -Force
 
 Write-Host ""
 Write-Host "Build succeeded:" -ForegroundColor Green
 Write-Host "  exe:       $(Join-Path $destDir 'module-scanner.exe')"
 foreach ($f in $installerFiles) {
-    Write-Host "  installer: $f"
+    $size = [math]::Round((Get-Item $f).Length / 1MB, 1)
+    Write-Host "  installer: $f ($size MB)"
 }
