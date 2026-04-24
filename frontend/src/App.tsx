@@ -791,8 +791,8 @@ export default function App() {
               />
             </Form.Item>
             <Form.Item
-              label="vLLM 병렬 사용"
-              tooltip="켜면 각 이미지를 바코드 디코더와 vLLM이 동시에 분석하고 결과를 합칩니다. 이미지당 수 초 ~ 수십 초 더 걸립니다."
+              label="vLLM 자동 사용 (테이블일 때만)"
+              tooltip="바코드가 5개 이상 검출되면 포장 명세서로 판단해 vLLM을 추가 호출하고 결과를 합칩니다. 단일 라벨 사진은 빠른 바코드만 사용."
             >
               <Switch
                 checked={settingsDraft.use_vllm_fallback}
@@ -802,7 +802,7 @@ export default function App() {
               />
               <Text type="secondary" style={{ marginLeft: 8 }}>
                 {settingsDraft.use_vllm_fallback
-                  ? "바코드 + vLLM 결과를 합침 (느리지만 정확)"
+                  ? "테이블 감지 시 vLLM 추가 호출"
                   : "바코드만 (빠름)"}
               </Text>
             </Form.Item>
