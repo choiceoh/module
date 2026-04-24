@@ -57,6 +57,7 @@ declare global {
           BuildReport(req: BuildRequest): Promise<BuildResult | null>;
           GetSettings(): Promise<Settings>;
           SaveSettings(s: Settings): Promise<void>;
+          Version(): Promise<string>;
         };
       };
     };
@@ -123,4 +124,8 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(s: Settings): Promise<void> {
   return await bridge().SaveSettings(s);
+}
+
+export async function getVersion(): Promise<string> {
+  return await bridge().Version();
 }

@@ -35,6 +35,10 @@ func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+func (a *App) Version() string {
+	return appVersion()
+}
+
 func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	data, err := decodeDataURL(dataURL)
 	if err != nil {

@@ -24,7 +24,7 @@ func main() {
 		log.SetOutput(logFile)
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}
-	log.Printf("=== module-scanner starting (pid=%d) ===", os.Getpid())
+	log.Printf("=== module-scanner v%s starting (pid=%d) ===", appVersion(), os.Getpid())
 	log.Printf("log file: %s", logPath)
 
 	defer func() {
@@ -37,7 +37,7 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "모듈 시리얼 스캐너",
+		Title:  "모듈 시리얼 스캐너 v" + appVersion(),
 		Width:  1280,
 		Height: 800,
 		AssetServer: &assetserver.Options{

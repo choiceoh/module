@@ -28,6 +28,15 @@ $webviewCache = Join-Path $webviewCacheDir "MicrosoftEdgeWebview2Setup.exe"
 $webviewOfflineUrl = "https://go.microsoft.com/fwlink/p/?LinkId=2099617"
 $webviewOfflineMinSize = 100MB
 
+# Read VERSION file → used in output filenames
+$versionFile = Join-Path $src "VERSION"
+$version = if (Test-Path $versionFile) {
+    (Get-Content $versionFile -Raw).Trim()
+} else {
+    "0.0.0"
+}
+Write-Host "Building version: v$version"
+
 # Ensure NSIS is on PATH so wails build -nsis can find makensis
 $nsisDir = "C:\Program Files (x86)\NSIS"
 if ($nsis -and (Test-Path $nsisDir) -and ($env:Path -notlike "*$nsisDir*")) {
@@ -119,20 +128,25 @@ Write-Host "[4/6] Copying artifacts back to project"
 $destDir = Join-Path $src "build\bin"
 if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
 
-# Copy exe
+# Copy exe (versioned filename)
 $exeSrc = Join-Path $tmp "build\bin\module-scanner.exe"
 if (-not (Test-Path $exeSrc)) {
     Write-Error "Built exe not found at $exeSrc"
     exit 1
 }
-Copy-Item $exeSrc $destDir -Force
+$exeDstName = "module-scanner-v$version.exe"
+if ($debugBuild) { $exeDstName = "module-scanner-v$version-debug.exe" }
+$exeDstPath = Join-Path $destDir $exeDstName
+Copy-Item $exeSrc $exeDstPath -Force
 
-# Copy installer(s) if -nsis
+# Copy installer(s) if -nsis (versioned filename)
 $installerFiles = @()
 if ($nsis) {
     Get-ChildItem -Path (Join-Path $tmp "build\bin") -Filter "*installer*.exe" | ForEach-Object {
-        Copy-Item $_.FullName $destDir -Force
-        $installerFiles += (Join-Path $destDir $_.Name)
+        $base = "module-scanner-v$version-installer.exe"
+        $dst = Join-Path $destDir $base
+        Copy-Item $_.FullName $dst -Force
+        $installerFiles += $dst
     }
 }
 
