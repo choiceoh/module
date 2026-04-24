@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log"
+	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	rt "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"module-scanner/internal/ai"
 	"module-scanner/internal/barcode"
 	"module-scanner/internal/excel"
 	"module-scanner/internal/masterbook"
@@ -21,14 +26,26 @@ import (
 type App struct {
 	ctx context.Context
 
-	mu      sync.Mutex
-	master  *masterbook.Book
-	presets *presets.Store
+	mu       sync.Mutex
+	master   *masterbook.Book
+	presets  *presets.Store
+	aiClient *ai.Client
 }
 
 func NewApp() *App {
 	store, _ := presets.Load()
-	return &App{presets: store}
+	app := &App{presets: store}
+	app.refreshAIClient()
+	return app
+}
+
+func (a *App) refreshAIClient() {
+	s := a.presets.GetSettings()
+	if s.UseVLLMFallback && s.VLLMBaseURL != "" && s.VLLMModel != "" {
+		a.aiClient = ai.New(s.VLLMBaseURL, s.VLLMModel)
+	} else {
+		a.aiClient = nil
+	}
 }
 
 func (a *App) Startup(ctx context.Context) {
@@ -45,19 +62,91 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		return []schema.ScanResult{{Filename: filename, Error: "invalid data url: " + err.Error()}}
 	}
 
-	hits, err := barcode.DecodeAll(data)
-	if err != nil {
-		return []schema.ScanResult{{Filename: filename, Error: "no barcode: " + err.Error()}}
+	var (
+		barcodeTexts []string
+		barcodeErr   error
+		vllmEntries  []ai.ModuleEntry
+		vllmPallet   string
+		vllmErr      error
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		hits, err := barcode.DecodeAll(data)
+		if err != nil {
+			barcodeErr = err
+			return
+		}
+		for _, h := range hits {
+			barcodeTexts = append(barcodeTexts, h.Text)
+		}
+	}()
+
+	a.mu.Lock()
+	aiClient := a.aiClient
+	a.mu.Unlock()
+
+	if aiClient != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			ext, err := aiClient.ExtractSerials(ctx, data, detectMIME(data))
+			if err != nil {
+				vllmErr = err
+				log.Printf("vllm extract failed for %s: %v", filename, err)
+				return
+			}
+			vllmEntries = ext.Modules
+			vllmPallet = ext.PalletSN
+		}()
 	}
-	if len(hits) == 0 {
-		return []schema.ScanResult{{Filename: filename, Error: "no barcode detected"}}
+	wg.Wait()
+
+	sourceBy := map[string]string{}
+	noBy := map[string]int{}
+	for _, t := range barcodeTexts {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			continue
+		}
+		sourceBy[t] = "barcode"
+	}
+	for _, e := range vllmEntries {
+		s := strings.TrimSpace(e.Serial)
+		if s == "" {
+			continue
+		}
+		if _, has := sourceBy[s]; !has {
+			sourceBy[s] = "vllm"
+		}
+		if _, has := noBy[s]; !has && e.No > 0 {
+			noBy[s] = e.No
+		}
 	}
 
-	texts := make([]string, 0, len(hits))
-	for _, h := range hits {
-		texts = append(texts, h.Text)
+	if len(sourceBy) == 0 {
+		msg := "no barcode detected"
+		if barcodeErr != nil {
+			msg = "no barcode: " + barcodeErr.Error()
+		}
+		if vllmErr != nil {
+			msg += "; vllm: " + vllmErr.Error()
+		}
+		return []schema.ScanResult{{Filename: filename, Error: msg}}
 	}
-	modules, pallet, others := barcode.Classify(texts)
+
+	allTexts := make([]string, 0, len(sourceBy))
+	for t := range sourceBy {
+		allTexts = append(allTexts, t)
+	}
+	modules, pallet, others := barcode.Classify(allTexts)
+	if pallet == "" && vllmPallet != "" {
+		pallet = strings.TrimSpace(vllmPallet)
+	}
 
 	if len(modules) == 0 {
 		if pallet != "" {
@@ -71,6 +160,22 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		return []schema.ScanResult{{Filename: filename, Error: "no module serials detected"}}
 	}
 
+	// Sort modules by VLM-provided NO when available; unknowns go to the end.
+	sort.SliceStable(modules, func(i, j int) bool {
+		ni, okI := noBy[modules[i]]
+		nj, okJ := noBy[modules[j]]
+		switch {
+		case okI && okJ:
+			return ni < nj
+		case okI:
+			return true
+		case okJ:
+			return false
+		default:
+			return modules[i] < modules[j]
+		}
+	})
+
 	out := make([]schema.ScanResult, 0, len(modules))
 	notesFromOthers := ""
 	if len(others) > 0 {
@@ -78,16 +183,40 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	}
 	for _, s := range modules {
 		serial, suffix := splitSuffix(s)
+		src := sourceBy[s]
+		if src == "" {
+			src = "barcode"
+		}
+		note := notesFromOthers
+		if n, ok := noBy[s]; ok {
+			if note != "" {
+				note = fmt.Sprintf("NO=%d; %s", n, note)
+			} else {
+				note = fmt.Sprintf("NO=%d", n)
+			}
+		}
 		out = append(out, schema.ScanResult{
 			Filename: filename,
 			Serial:   serial,
 			Suffix:   suffix,
-			Source:   "barcode",
+			Source:   src,
 			PalletSN: pallet,
-			Notes:    notesFromOthers,
+			Notes:    note,
 		})
 	}
 	return out
+}
+
+func detectMIME(data []byte) string {
+	if len(data) >= 8 {
+		switch {
+		case string(data[:3]) == "\xff\xd8\xff":
+			return "image/jpeg"
+		case string(data[:8]) == "\x89PNG\r\n\x1a\n":
+			return "image/png"
+		}
+	}
+	return http.DetectContentType(data)
 }
 
 func (a *App) ExportExcel(rows []schema.ScanResult) (string, error) {
@@ -251,7 +380,11 @@ func (a *App) GetSettings() presets.Settings {
 
 func (a *App) SaveSettings(s presets.Settings) error {
 	a.presets.PutSettings(s)
-	return a.presets.Save()
+	err := a.presets.Save()
+	a.mu.Lock()
+	a.refreshAIClient()
+	a.mu.Unlock()
+	return err
 }
 
 func decodeDataURL(s string) ([]byte, error) {

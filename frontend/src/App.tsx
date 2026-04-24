@@ -790,16 +790,20 @@ export default function App() {
                 placeholder="gemma4"
               />
             </Form.Item>
-            <Form.Item label="vLLM 폴백 사용 (준비 중)">
+            <Form.Item
+              label="vLLM 병렬 사용"
+              tooltip="켜면 각 이미지를 바코드 디코더와 vLLM이 동시에 분석하고 결과를 합칩니다. 이미지당 수 초 ~ 수십 초 더 걸립니다."
+            >
               <Switch
                 checked={settingsDraft.use_vllm_fallback}
                 onChange={(v) =>
                   setSettingsDraft({ ...settingsDraft, use_vllm_fallback: v })
                 }
-                disabled
               />
               <Text type="secondary" style={{ marginLeft: 8 }}>
-                (아직 구현 전)
+                {settingsDraft.use_vllm_fallback
+                  ? "바코드 + vLLM 결과를 합침 (느리지만 정확)"
+                  : "바코드만 (빠름)"}
               </Text>
             </Form.Item>
           </Form>
