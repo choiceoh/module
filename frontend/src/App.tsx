@@ -44,6 +44,7 @@ import {
   buildReport,
   exportExcel,
   getSettings,
+  getVersion,
   pickAndLoadMaster,
   saveSettings,
   scanFiles,
@@ -95,6 +96,13 @@ export default function App() {
     use_vllm_fallback: false,
   });
   const [settingsDraft, setSettingsDraft] = useState<Settings>(settings);
+  const [version, setVersion] = useState<string>("");
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     getSettings()
@@ -297,27 +305,28 @@ export default function App() {
 
   const clearAll = () => setRows([]);
 
+  const cellStyle = { fontSize: 12 };
   const columns = [
     {
       title: "파일",
       dataIndex: "filename",
       key: "filename",
-      width: 200,
+      width: 140,
       fixed: "left" as const,
       render: (v: string, r: Row) =>
         r.error ? (
-          <Text type="danger" title={r.error}>
+          <Text type="danger" title={r.error} style={cellStyle}>
             {v} ⚠
           </Text>
         ) : (
-          <Text>{v}</Text>
+          <Text style={cellStyle}>{v}</Text>
         ),
     },
     {
       title: "팔레트",
       dataIndex: "pallet_sn",
       key: "pallet_sn",
-      width: 140,
+      width: 130,
       render: (v: string | undefined, r: Row) => {
         const color = palletColors.get(v || "(미지정)") ?? "default";
         return (
@@ -325,6 +334,7 @@ export default function App() {
             value={v ?? ""}
             size="small"
             variant="borderless"
+            style={cellStyle}
             onChange={(e) => updateCell(r._rowId, "pallet_sn", e.target.value)}
             placeholder="—"
             addonBefore={
@@ -342,17 +352,18 @@ export default function App() {
       title: "시리얼",
       dataIndex: "serial",
       key: "serial",
-      width: 260,
+      width: 200,
       render: (v: string, r: Row) => (
         <Input
           value={v}
           size="small"
           variant="borderless"
+          style={cellStyle}
           onChange={(e) => updateCell(r._rowId, "serial", e.target.value)}
           status={v && duplicateSerials.has(v) ? "warning" : undefined}
           suffix={
             v && duplicateSerials.has(v) ? (
-              <Tag color="orange" style={{ margin: 0 }}>
+              <Tag color="orange" style={{ margin: 0, fontSize: 10 }}>
                 중복
               </Tag>
             ) : null
@@ -364,12 +375,13 @@ export default function App() {
       title: "접미사",
       dataIndex: "suffix",
       key: "suffix",
-      width: 80,
+      width: 50,
       render: (v: string, r: Row) => (
         <Input
           value={v}
           size="small"
           variant="borderless"
+          style={cellStyle}
           onChange={(e) => updateCell(r._rowId, "suffix", e.target.value)}
         />
       ),
@@ -378,19 +390,24 @@ export default function App() {
       title: "출처",
       dataIndex: "source",
       key: "source",
-      width: 80,
-      render: (v: ScanSource) => <Tag color={sourceColor[v]}>{sourceLabel[v]}</Tag>,
+      width: 60,
+      render: (v: ScanSource) => (
+        <Tag color={sourceColor[v]} style={{ fontSize: 10 }}>
+          {sourceLabel[v]}
+        </Tag>
+      ),
     },
     {
       title: "비고",
       dataIndex: "notes",
       key: "notes",
-      width: 180,
+      width: 320,
       render: (v: string | undefined, r: Row) => (
-        <Input
+        <Input.TextArea
           value={v ?? ""}
-          size="small"
+          autoSize={{ minRows: 1, maxRows: 3 }}
           variant="borderless"
+          style={{ ...cellStyle, padding: "2px 4px" }}
           onChange={(e) => updateCell(r._rowId, "notes", e.target.value)}
         />
       ),
@@ -398,7 +415,7 @@ export default function App() {
     {
       title: "",
       key: "_actions",
-      width: 60,
+      width: 40,
       fixed: "right" as const,
       render: (_: unknown, r: Row) => (
         <Button
@@ -423,9 +440,16 @@ export default function App() {
           justifyContent: "space-between",
         }}
       >
-        <Title level={3} style={{ margin: 0, lineHeight: "64px" }}>
-          모듈 시리얼 스캐너
-        </Title>
+        <Space align="baseline">
+          <Title level={3} style={{ margin: 0, lineHeight: "64px" }}>
+            모듈 시리얼 스캐너
+          </Title>
+          {version && (
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              v{version}
+            </Text>
+          )}
+        </Space>
         <Button icon={<SettingOutlined />} onClick={openSettings}>
           설정
         </Button>

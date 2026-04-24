@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
 	"strings"
+	"sync"
 
 	"github.com/disintegration/imaging"
 	"github.com/makiuchi-d/gozxing"
@@ -19,19 +21,55 @@ type Hit struct {
 }
 
 // DecodeAll extracts Code 128 barcodes from the image.
-// Tries multiple strategies to cover both stacked labels (a few barcodes
-// in horizontal bands) and dense grids (packing list sheets with 30+ barcodes
-// in a 2D grid).
+//   - Preprocessing: grayscale + Otsu binarization (document-scanner style)
+//   - Strategies: whole-image + multiple grid sizes (handles single labels
+//     and dense packing lists)
+//   - Parallel execution across strategies (one goroutine per strategy)
+//   - Per-tile rotation probes (-5, 0, 5 deg) to handle slight tilt
 func DecodeAll(data []byte) ([]Hit, error) {
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}
 
-	hits := runStrategies(img)
-	if len(hits) == 0 {
-		enhanced := imaging.AdjustContrast(imaging.Grayscale(img), 20)
-		hits = runStrategies(enhanced)
+	variants := []image.Image{
+		img,
+		otsuBinarize(img),
+		imaging.AdjustContrast(imaging.Grayscale(img), 40),
+	}
+
+	strategies := [][2]int{
+		{1, 1},
+		{3, 13}, {3, 14}, {3, 15},
+		{4, 13}, {4, 14},
+		{2, 12},
+	}
+
+	type hit struct{ text string }
+	out := make(chan hit, 4096)
+
+	var wg sync.WaitGroup
+	for _, v := range variants {
+		for _, s := range strategies {
+			wg.Add(1)
+			go func(src image.Image, cols, rows int) {
+				defer wg.Done()
+				for _, t := range decodeGrid(src, cols, rows) {
+					out <- hit{t}
+				}
+			}(v, s[0], s[1])
+		}
+	}
+	go func() { wg.Wait(); close(out) }()
+
+	seen := map[string]struct{}{}
+	var hits []Hit
+	for h := range out {
+		if _, ok := seen[h.text]; ok {
+			continue
+		}
+		seen[h.text] = struct{}{}
+		hits = append(hits, Hit{Text: h.text, Format: "CODE_128"})
 	}
 
 	if len(hits) == 0 {
@@ -40,33 +78,7 @@ func DecodeAll(data []byte) ([]Hit, error) {
 	return hits, nil
 }
 
-func runStrategies(img image.Image) []Hit {
-	seen := map[string]struct{}{}
-	var hits []Hit
-
-	add := func(newHits []Hit) {
-		for _, h := range newHits {
-			if _, ok := seen[h.Text]; ok {
-				continue
-			}
-			seen[h.Text] = struct{}{}
-			hits = append(hits, h)
-		}
-	}
-
-	strategies := [][2]int{
-		{1, 1},
-		{1, 4}, {1, 8}, {1, 6}, {1, 2},
-		{3, 13}, {3, 12}, {3, 14}, {4, 10}, {3, 10},
-		{2, 8}, {4, 13},
-	}
-	for _, s := range strategies {
-		add(decodeGrid(img, s[0], s[1]))
-	}
-	return hits
-}
-
-func decodeGrid(img image.Image, cols, rows int) []Hit {
+func decodeGrid(img image.Image, cols, rows int) []string {
 	bounds := img.Bounds()
 	w := bounds.Dx()
 	h := bounds.Dy()
@@ -75,11 +87,11 @@ func decodeGrid(img image.Image, cols, rows int) []Hit {
 	if tileW < 60 || tileH < 20 {
 		return nil
 	}
-	overlapX := tileW / 6
-	overlapY := tileH / 6
+	overlapX := tileW / 4
+	overlapY := tileH / 3
 
 	seen := map[string]struct{}{}
-	var out []Hit
+	var out []string
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
@@ -100,16 +112,22 @@ func decodeGrid(img image.Image, cols, rows int) []Hit {
 				y1 = bounds.Max.Y
 			}
 			crop := imaging.Crop(img, image.Rect(x0, y0, x1, y1))
-			for _, deg := range []float64{0, 180} {
-				target := crop
+
+			target := crop
+			cw := crop.Bounds().Dx()
+			if cw > 0 && cw < 500 {
+				target = imaging.Resize(crop, cw*2, 0, imaging.Lanczos)
+			}
+
+			for _, deg := range []float64{0, -5, 5} {
+				attempt := target
 				if deg != 0 {
-					target = imaging.Rotate(crop, deg, image.Transparent)
+					attempt = imaging.Rotate(target, deg, image.Transparent)
 				}
-				text, ok := decodeCode128(target)
-				if ok {
+				if text, ok := decodeCode128(attempt); ok {
 					if _, dup := seen[text]; !dup {
 						seen[text] = struct{}{}
-						out = append(out, Hit{Text: text, Format: "CODE_128"})
+						out = append(out, text)
 					}
 					break
 				}
@@ -134,14 +152,76 @@ func decodeCode128(img image.Image) (string, bool) {
 	return strings.TrimSpace(result.GetText()), true
 }
 
-// Classify groups decoded texts into module serials and a pallet serial.
-// Rule: the dominant (most common) text length is assumed to be module
-// serials — since a packing list has many modules but typically only one
-// pallet number. Any outlier with a different length is treated as the
-// pallet number. Works independent of manufacturer-specific prefixes.
+// otsuBinarize applies grayscale + global Otsu threshold.
+// Produces a pure black/white image that helps Code 128 decode on noisy
+// photos (shadows, paper texture, mild blur).
+func otsuBinarize(src image.Image) image.Image {
+	gray := imaging.Grayscale(src)
+	bounds := gray.Bounds()
+
+	var hist [256]int
+	total := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, _, _, _ := gray.At(x, y).RGBA()
+			hist[r>>8]++
+			total++
+		}
+	}
+	if total == 0 {
+		return gray
+	}
+
+	var sum float64
+	for i, c := range hist {
+		sum += float64(i) * float64(c)
+	}
+
+	var (
+		sumB      float64
+		wB        int
+		maxVar    float64
+		threshold uint8 = 128
+	)
+	for i := 0; i < 256; i++ {
+		wB += hist[i]
+		if wB == 0 {
+			continue
+		}
+		wF := total - wB
+		if wF == 0 {
+			break
+		}
+		sumB += float64(i) * float64(hist[i])
+		mB := sumB / float64(wB)
+		mF := (sum - sumB) / float64(wF)
+		variance := float64(wB) * float64(wF) * (mB - mF) * (mB - mF)
+		if variance > maxVar {
+			maxVar = variance
+			threshold = uint8(i)
+		}
+	}
+
+	bin := image.NewRGBA(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, _, _, _ := gray.At(x, y).RGBA()
+			if uint8(r>>8) > threshold {
+				bin.Set(x, y, color.White)
+			} else {
+				bin.Set(x, y, color.Black)
+			}
+		}
+	}
+	return bin
+}
+
+// Classify groups decoded texts into module serials and a pallet serial
+// by the "majority length" rule: a packing list carries many modules
+// (same length) and typically a single pallet code (different length).
 //
-// When only a single barcode is detected, a length threshold (>=18) is
-// used to classify between a single-module photo and a pallet-only photo.
+// Works across vendors (Jinko E2FXJ… 24-char, Trina R0126… 15-char, etc.)
+// without hardcoded prefixes.
 func Classify(texts []string) (modules []string, pallet string, others []string) {
 	if len(texts) == 0 {
 		return
