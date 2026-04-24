@@ -1,13 +1,16 @@
 package schema
 
 type ScanResult struct {
-	Filename string `json:"filename"`
-	Serial   string `json:"serial"`
-	Suffix   string `json:"suffix"`
-	Source   string `json:"source"`
-	PalletSN string `json:"pallet_sn,omitempty"`
-	Notes    string `json:"notes,omitempty"`
-	Error    string `json:"error,omitempty"`
+	Filename  string `json:"filename"`
+	PhotoNo   int    `json:"photo_no,omitempty"`
+	Serial    string `json:"serial"`
+	Suffix    string `json:"suffix"`
+	Source    string `json:"source"`
+	PalletSN  string `json:"pallet_sn,omitempty"`
+	Corrected bool   `json:"corrected,omitempty"`
+	RawText   string `json:"raw_text,omitempty"`
+	Notes     string `json:"notes,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type Column struct {
@@ -17,9 +20,10 @@ type Column struct {
 }
 
 var Columns = []Column{
-	{"filename", "파일", 28},
+	{"filename", "파일", 24},
+	{"photo_no", "NO", 6},
 	{"pallet_sn", "팔레트", 16},
-	{"serial", "시리얼", 32},
+	{"serial", "시리얼", 30},
 	{"suffix", "접미사", 10},
 	{"source", "출처", 10},
 	{"notes", "비고", 24},

@@ -6,9 +6,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
+	_ "image/jpeg"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/disintegration/imaging"
 
 	"module-scanner/internal/schema"
 )
@@ -25,6 +30,27 @@ func New(baseURL, model string) *Client {
 		Model:   model,
 		HTTP:    &http.Client{Timeout: 120 * time.Second},
 	}
+}
+
+// Ping hits /v1/models on the OpenAI-compatible server. Returns nil on
+// success, an error describing the failure otherwise. Fast — 5s timeout
+// is typical for callers.
+func (c *Client) Ping(ctx context.Context) error {
+	url := c.BaseURL + "/models"
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTP.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("connect failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("http %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
 }
 
 type chatMessage struct {
@@ -189,9 +215,99 @@ Rules:
 - Never emit the pallet_sn as a module entry.
 - Output JSON only, matching the given schema.`
 
+// ExtractSerials splits the image into overlapping vertical slices and
+// sends each to the VLM. Vision models typically downscale inputs to
+// ~1024x1024, so a 3000px-tall packing list has tiny barcode text after
+// resize. Tiling gives the model a larger effective resolution per call.
 func (c *Client) ExtractSerials(ctx context.Context, imageData []byte, mimeType string) (*SerialExtract, error) {
+	img, _, err := image.Decode(bytes.NewReader(imageData))
+	if err != nil {
+		return nil, fmt.Errorf("decode image for tiling: %w", err)
+	}
+	bounds := img.Bounds()
+	h := bounds.Dy()
+	w := bounds.Dx()
+
+	// Decide tile count based on height. >2000px → 3 tiles, >1200 → 2, else 1.
+	tiles := 1
+	switch {
+	case h > 2000:
+		tiles = 3
+	case h > 1200:
+		tiles = 2
+	}
+
+	var tilePNGs [][]byte
+	if tiles == 1 {
+		tilePNGs = [][]byte{imageData}
+	} else {
+		sliceH := h / tiles
+		overlap := sliceH / 4
+		for i := 0; i < tiles; i++ {
+			y0 := i*sliceH - overlap
+			y1 := (i+1)*sliceH + overlap
+			if y0 < 0 {
+				y0 = 0
+			}
+			if y1 > h {
+				y1 = h
+			}
+			if i == tiles-1 {
+				y1 = h
+			}
+			crop := imaging.Crop(img, image.Rect(0, y0, w, y1))
+			var buf bytes.Buffer
+			if err := png.Encode(&buf, crop); err != nil {
+				continue
+			}
+			tilePNGs = append(tilePNGs, buf.Bytes())
+		}
+	}
+
+	seen := map[string]struct{}{}
+	merged := &SerialExtract{}
+	for i, tile := range tilePNGs {
+		mime := mimeType
+		if tiles > 1 {
+			mime = "image/png"
+		}
+		ext, err := c.extractSerialsOnce(ctx, tile, mime, i+1, tiles)
+		if err != nil {
+			if i == 0 && len(tilePNGs) == 1 {
+				return nil, err
+			}
+			continue
+		}
+		if merged.PalletSN == "" && ext.PalletSN != "" {
+			merged.PalletSN = ext.PalletSN
+		}
+		for _, m := range ext.Modules {
+			s := m.Serial
+			if s == "" {
+				continue
+			}
+			if _, dup := seen[s]; dup {
+				continue
+			}
+			seen[s] = struct{}{}
+			merged.Modules = append(merged.Modules, m)
+		}
+	}
+
+	if len(merged.Modules) == 0 && merged.PalletSN == "" {
+		return nil, fmt.Errorf("no serials extracted from %d tile(s)", tiles)
+	}
+	return merged, nil
+}
+
+func (c *Client) extractSerialsOnce(ctx context.Context, imageData []byte, mimeType string, tileIdx, tileCount int) (*SerialExtract, error) {
 	b64 := base64.StdEncoding.EncodeToString(imageData)
 	dataURL := fmt.Sprintf("data:%s;base64,%s", mimeType, b64)
+
+	userMsg := "Extract all module serials and the pallet number from this packing list image. A single sheet typically has 30-40 modules — do NOT stop early. Read EVERY row you can see."
+	if tileCount > 1 {
+		userMsg = fmt.Sprintf("This is tile %d of %d (vertical slice) from a packing list. Read every module serial in this slice. Do NOT stop early.", tileIdx, tileCount)
+	}
 
 	req := chatRequest{
 		Model: c.Model,
@@ -203,13 +319,13 @@ func (c *Client) ExtractSerials(ctx context.Context, imageData []byte, mimeType 
 			{
 				Role: "user",
 				Content: []content{
-					{Type: "text", Text: "Extract all module serials and the pallet number from this packing list image."},
+					{Type: "text", Text: userMsg},
 					{Type: "image_url", ImageURL: &imageURL{URL: dataURL}},
 				},
 			},
 		},
 		Temperature:    0.0,
-		MaxTokens:      4096,
+		MaxTokens:      8192,
 		ResponseFormat: &responseFormat{Type: "json_object"},
 		GuidedJSON:     json.RawMessage(serialExtractSchema),
 	}

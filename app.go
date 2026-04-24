@@ -63,57 +63,55 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	}
 
 	var (
-		barcodeTexts []string
-		barcodeErr   error
-		vllmEntries  []ai.ModuleEntry
-		vllmPallet   string
-		vllmErr      error
+		barcodeHits []barcode.Hit
+		barcodeErr  error
+		vllmEntries []ai.ModuleEntry
+		vllmPallet  string
+		vllmErr     error
 	)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		hits, err := barcode.DecodeAll(data)
-		if err != nil {
-			barcodeErr = err
-			return
-		}
-		for _, h := range hits {
-			barcodeTexts = append(barcodeTexts, h.Text)
-		}
-	}()
+	// Barcode scan first (fast).
+	if hits, err := barcode.DecodeAll(data); err != nil {
+		barcodeErr = err
+	} else {
+		barcodeHits = hits
+	}
 
 	a.mu.Lock()
 	aiClient := a.aiClient
 	a.mu.Unlock()
 
-	if aiClient != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-			defer cancel()
-			ext, err := aiClient.ExtractSerials(ctx, data, detectMIME(data))
-			if err != nil {
-				vllmErr = err
-				log.Printf("vllm extract failed for %s: %v", filename, err)
-				return
-			}
+	// Only run vLLM when this looks like a table/packing list —
+	// heuristic: 5+ barcodes decoded. Single-label photos skip vLLM
+	// so they stay fast.
+	const tableThreshold = 5
+	looksLikeTable := len(barcodeHits) >= tableThreshold
+
+	if aiClient != nil && looksLikeTable {
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		ext, err := aiClient.ExtractSerials(ctx, data, detectMIME(data))
+		cancel()
+		if err != nil {
+			vllmErr = err
+			log.Printf("vllm extract failed for %s: %v", filename, err)
+		} else {
 			vllmEntries = ext.Modules
 			vllmPallet = ext.PalletSN
-		}()
+		}
 	}
-	wg.Wait()
 
 	sourceBy := map[string]string{}
 	noBy := map[string]int{}
-	for _, t := range barcodeTexts {
-		t = strings.TrimSpace(t)
+	correctedBy := map[string]string{} // serial → raw text if corrected
+	for _, h := range barcodeHits {
+		t := strings.TrimSpace(h.Text)
 		if t == "" {
 			continue
 		}
 		sourceBy[t] = "barcode"
+		if h.Corrected {
+			correctedBy[t] = h.RawText
+		}
 	}
 	for _, e := range vllmEntries {
 		s := strings.TrimSpace(e.Serial)
@@ -187,21 +185,35 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		if src == "" {
 			src = "barcode"
 		}
-		note := notesFromOthers
+		photoNo := 0
 		if n, ok := noBy[s]; ok {
-			if note != "" {
-				note = fmt.Sprintf("NO=%d; %s", n, note)
+			photoNo = n
+		}
+		corrected := false
+		rawText := ""
+		if raw, ok := correctedBy[s]; ok {
+			corrected = true
+			rawText = raw
+		}
+		notes := notesFromOthers
+		if corrected {
+			note := fmt.Sprintf("수정됨 (원본: %s)", rawText)
+			if notes != "" {
+				notes = note + "; " + notes
 			} else {
-				note = fmt.Sprintf("NO=%d", n)
+				notes = note
 			}
 		}
 		out = append(out, schema.ScanResult{
-			Filename: filename,
-			Serial:   serial,
-			Suffix:   suffix,
-			Source:   src,
-			PalletSN: pallet,
-			Notes:    note,
+			Filename:  filename,
+			PhotoNo:   photoNo,
+			Serial:    serial,
+			Suffix:    suffix,
+			Source:    src,
+			PalletSN:  pallet,
+			Corrected: corrected,
+			RawText:   rawText,
+			Notes:     notes,
 		})
 	}
 	return out
@@ -376,6 +388,40 @@ func (a *App) BuildReport(req BuildRequest) (*report.BuildResult, error) {
 
 func (a *App) GetSettings() presets.Settings {
 	return a.presets.GetSettings()
+}
+
+type VLLMStatus struct {
+	Enabled   bool   `json:"enabled"`
+	URL       string `json:"url"`
+	Model     string `json:"model"`
+	OK        bool   `json:"ok"`
+	Error     string `json:"error,omitempty"`
+	LatencyMs int64  `json:"latency_ms"`
+}
+
+func (a *App) PingVLLM() VLLMStatus {
+	s := a.presets.GetSettings()
+	status := VLLMStatus{
+		Enabled: s.UseVLLMFallback,
+		URL:     s.VLLMBaseURL,
+		Model:   s.VLLMModel,
+	}
+	if s.VLLMBaseURL == "" || s.VLLMModel == "" {
+		status.Error = "URL/모델 미설정"
+		return status
+	}
+	client := ai.New(s.VLLMBaseURL, s.VLLMModel)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	start := time.Now()
+	err := client.Ping(ctx)
+	status.LatencyMs = time.Since(start).Milliseconds()
+	if err != nil {
+		status.Error = err.Error()
+		return status
+	}
+	status.OK = true
+	return status
 }
 
 func (a *App) SaveSettings(s presets.Settings) error {
