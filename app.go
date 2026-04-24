@@ -70,35 +70,41 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		vllmErr     error
 	)
 
-	// Barcode scan first (fast).
-	if hits, err := barcode.DecodeAll(data); err != nil {
-		barcodeErr = err
-	} else {
-		barcodeHits = hits
-	}
-
 	a.mu.Lock()
 	aiClient := a.aiClient
 	a.mu.Unlock()
 
-	// Only run vLLM when this looks like a table/packing list —
-	// heuristic: 5+ barcodes decoded. Single-label photos skip vLLM
-	// so they stay fast.
-	const tableThreshold = 5
-	looksLikeTable := len(barcodeHits) >= tableThreshold
-
-	if aiClient != nil && looksLikeTable {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-		ext, err := aiClient.ExtractSerials(ctx, data, detectMIME(data))
-		cancel()
+	// Run barcode and vLLM in parallel. vLLM is much slower (model
+	// inference is the bottleneck) so wall time = max(barcode, vLLM)
+	// when vLLM is enabled, instead of sum.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		hits, err := barcode.DecodeAll(data)
 		if err != nil {
-			vllmErr = err
-			log.Printf("vllm extract failed for %s: %v", filename, err)
-		} else {
+			barcodeErr = err
+			return
+		}
+		barcodeHits = hits
+	}()
+	if aiClient != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			ext, err := aiClient.ExtractSerials(ctx, data, detectMIME(data))
+			if err != nil {
+				vllmErr = err
+				log.Printf("vllm extract failed for %s: %v", filename, err)
+				return
+			}
 			vllmEntries = ext.Modules
 			vllmPallet = ext.PalletSN
-		}
+		}()
 	}
+	wg.Wait()
 
 	sourceBy := map[string]string{}
 	noBy := map[string]int{}
