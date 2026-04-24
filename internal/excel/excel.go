@@ -34,7 +34,7 @@ func WriteScanResults(path string, rows []schema.ScanResult) error {
 	}
 
 	for r, row := range rows {
-		values := []string{row.Filename, row.Serial, row.Suffix, row.Source, row.Notes}
+		values := []string{row.Filename, row.PalletSN, row.Serial, row.Suffix, row.Source, row.Notes}
 		for i, v := range values {
 			cell, _ := excelize.CoordinatesToCellName(i+1, r+2)
 			f.SetCellValue(sheet, cell, v)
