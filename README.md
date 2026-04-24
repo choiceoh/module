@@ -32,11 +32,23 @@ wails dev
 
 ## 빌드 (단일 exe)
 
+프로젝트 경로에 **한글/공백이 없는 경우**:
+
 ```bash
 wails build
 ```
 
-결과: `build/bin/module-scanner.exe` (대략 20MB, 더블클릭 실행).
+**한글/공백 경로인 경우** (예: `C:\Users\...\새 폴더\...`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+`build.ps1` 은 소스를 `%TEMP%\module-scanner-build` (ASCII)로 복사한 뒤 빌드하고 결과 `.exe` 만 원래 경로의 `build\bin\` 로 가져옵니다.
+
+결과: `build/bin/module-scanner.exe` (약 16MB, 더블클릭 실행).
+
+> **왜 이런 워크어라운드가 필요한가?** Rollup 4의 Windows 네이티브 바인딩이 Node 24 + 비-ASCII 경로 조합에서 `STATUS_STACK_BUFFER_OVERRUN`(0xc0000409)으로 조용히 크래시합니다. 빌드만 ASCII 경로에서 하면 되고, 생성된 `.exe` 는 어디서든 실행됩니다.
 
 ## 사용 흐름
 

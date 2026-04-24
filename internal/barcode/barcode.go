@@ -9,7 +9,6 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/makiuchi-d/gozxing"
-	"github.com/makiuchi-d/gozxing/multi"
 	"github.com/makiuchi-d/gozxing/oned"
 )
 
@@ -18,62 +17,78 @@ type Hit struct {
 	Format string
 }
 
+// DecodeAll extracts Code 128 barcodes from the image.
+// Tries the full image first; if nothing found, slices the image into
+// horizontal bands (1, 2, 4, 8, 6) and decodes each band separately —
+// this covers cases where multiple barcodes are stacked vertically
+// (e.g. multiple product labels in one photo).
 func DecodeAll(data []byte) ([]Hit, error) {
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("decode image: %w", err)
 	}
 
-	if hits, err := scanAtRotations(img); err == nil && len(hits) > 0 {
+	if hits := decodeBands(img, []int{1, 4, 2, 8, 6}); len(hits) > 0 {
 		return hits, nil
 	}
 
+	// Fallback: grayscale + contrast boost, then retry
 	enhanced := imaging.AdjustContrast(imaging.Grayscale(img), 20)
-	if hits, err := scanAtRotations(enhanced); err == nil && len(hits) > 0 {
+	if hits := decodeBands(enhanced, []int{1, 4, 2, 8, 6}); len(hits) > 0 {
 		return hits, nil
 	}
 
 	return nil, fmt.Errorf("no barcode decoded")
 }
 
-func scanAtRotations(img image.Image) ([]Hit, error) {
-	for _, deg := range []float64{0, 90, 180, 270} {
-		rotated := img
-		if deg != 0 {
-			rotated = imaging.Rotate(img, deg, image.Transparent)
-		}
-		if hits, err := scanOne(rotated); err == nil && len(hits) > 0 {
-			return hits, nil
-		}
-	}
-	return nil, fmt.Errorf("no barcode at any rotation")
-}
-
-func scanOne(img image.Image) ([]Hit, error) {
-	bmp, err := gozxing.NewBinaryBitmapFromImage(img)
-	if err != nil {
-		return nil, err
-	}
-
-	reader := multi.NewGenericMultipleBarcodeReader(oned.NewCode128Reader())
-	results, err := reader.DecodeMultiple(bmp, nil)
-	if err != nil {
-		single, singleErr := oned.NewCode128Reader().Decode(bmp, nil)
-		if singleErr != nil {
-			return nil, err
-		}
-		return []Hit{{Text: single.GetText(), Format: single.GetBarcodeFormat().String()}}, nil
-	}
-
+func decodeBands(img image.Image, bandCounts []int) []Hit {
 	seen := map[string]bool{}
-	out := make([]Hit, 0, len(results))
-	for _, r := range results {
-		t := r.GetText()
-		if seen[t] {
+	var hits []Hit
+	bounds := img.Bounds()
+	for _, n := range bandCounts {
+		bandH := bounds.Dy() / n
+		if bandH < 20 {
 			continue
 		}
-		seen[t] = true
-		out = append(out, Hit{Text: t, Format: r.GetBarcodeFormat().String()})
+		for i := 0; i < n; i++ {
+			y0 := bounds.Min.Y + i*bandH
+			y1 := y0 + bandH
+			if i == n-1 {
+				y1 = bounds.Max.Y
+			}
+			crop := imaging.Crop(img, image.Rect(bounds.Min.X, y0, bounds.Max.X, y1))
+			for _, rotated := range rotations(crop) {
+				if text, ok := decodeCode128(rotated); ok {
+					if !seen[text] {
+						seen[text] = true
+						hits = append(hits, Hit{Text: text, Format: "CODE_128"})
+					}
+					break
+				}
+			}
+		}
 	}
-	return out, nil
+	return hits
+}
+
+func rotations(img image.Image) []image.Image {
+	return []image.Image{
+		img,
+		imaging.Rotate(img, 180, image.Transparent),
+	}
+}
+
+func decodeCode128(img image.Image) (string, bool) {
+	bmp, err := gozxing.NewBinaryBitmapFromImage(img)
+	if err != nil {
+		return "", false
+	}
+	hints := map[gozxing.DecodeHintType]interface{}{
+		gozxing.DecodeHintType_TRY_HARDER: true,
+	}
+	result, err := oned.NewCode128Reader().Decode(bmp, hints)
+	if err != nil {
+		return "", false
+	}
+	return result.GetText(), true
 }
