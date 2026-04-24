@@ -43,6 +43,13 @@ if ($nsis -and (Test-Path $nsisDir) -and ($env:Path -notlike "*$nsisDir*")) {
     $env:Path = "$env:Path;$nsisDir"
 }
 
+# OCR package requires cgo + MinGW (yalue/onnxruntime_go wraps onnxruntime C API)
+$mingwDir = "C:\msys64\mingw64\bin"
+if ((Test-Path $mingwDir) -and ($env:Path -notlike "*$mingwDir*")) {
+    $env:Path = "$mingwDir;$env:Path"
+}
+$env:CGO_ENABLED = "1"
+
 if ($embed -and -not $nsis) {
     Write-Error "-embed requires -nsis"
     exit 1
