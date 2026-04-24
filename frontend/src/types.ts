@@ -1,50 +1,30 @@
-export type Module = {
-  model_name: string;
-  manufacturer: string;
-  category: string;
-  voltage_rated: string;
-  current_rated: string;
-  interface: string;
-  temp_range: string;
-  dimensions: string;
-  weight: string;
-  notes: string;
-};
+export type ScanSource = "barcode" | "manual" | "vllm";
 
-export const MODULE_COLUMNS: { key: keyof Module; label: string }[] = [
-  { key: "model_name", label: "모델명" },
-  { key: "manufacturer", label: "제조사" },
-  { key: "category", label: "카테고리" },
-  { key: "voltage_rated", label: "정격전압" },
-  { key: "current_rated", label: "정격전류" },
-  { key: "interface", label: "인터페이스" },
-  { key: "temp_range", label: "동작온도" },
-  { key: "dimensions", label: "치수" },
-  { key: "weight", label: "무게" },
-  { key: "notes", label: "비고" },
-];
-
-export const emptyModule = (): Module => ({
-  model_name: "",
-  manufacturer: "",
-  category: "",
-  voltage_rated: "",
-  current_rated: "",
-  interface: "",
-  temp_range: "",
-  dimensions: "",
-  weight: "",
-  notes: "",
-});
-
-export type ExtractResult = {
+export type ScanResult = {
   filename: string;
-  module?: Module;
+  serial: string;
+  suffix: string;
+  source: ScanSource;
+  notes?: string;
   error?: string;
 };
 
-export type Row = Module & {
+export const SCAN_COLUMNS: { key: keyof ScanResult; label: string; width: number }[] = [
+  { key: "filename", label: "파일", width: 200 },
+  { key: "serial", label: "시리얼", width: 260 },
+  { key: "suffix", label: "접미사", width: 80 },
+  { key: "source", label: "출처", width: 80 },
+  { key: "notes", label: "비고", width: 180 },
+];
+
+export const emptyRow = (): ScanResult => ({
+  filename: "(수동 입력)",
+  serial: "",
+  suffix: "",
+  source: "manual",
+  notes: "",
+});
+
+export type Row = ScanResult & {
   _rowId: string;
-  _filename: string;
-  _error?: string;
 };

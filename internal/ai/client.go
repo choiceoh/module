@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"module-backend/internal/schema"
+	"module-scanner/internal/schema"
 )
 
 type Client struct {
@@ -93,7 +93,7 @@ func (c *Client) ExtractModule(ctx context.Context, imageData []byte, mimeType s
 		Temperature:    0.1,
 		MaxTokens:      1024,
 		ResponseFormat: &responseFormat{Type: "json_object"},
-		GuidedJSON:     json.RawMessage(schema.JSONSchema),
+		GuidedJSON:     json.RawMessage(schema.ModuleJSONSchema),
 	}
 
 	body, err := json.Marshal(req)

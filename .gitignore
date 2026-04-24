@@ -1,8 +1,13 @@
 # Go
-backend/bin/
-backend/*.exe
-backend/*.test
-backend/*.out
+*.exe
+*.test
+*.out
+bin/
+build/bin/
+build/windows/
+
+# Wails
+frontend/wailsjs/
 
 # Node / frontend
 frontend/node_modules/
