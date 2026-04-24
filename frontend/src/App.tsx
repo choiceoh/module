@@ -141,6 +141,41 @@ export default function App() {
     return dups;
   }, [rows]);
 
+  const palletStats = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      if (!r.serial) continue;
+      const key = r.pallet_sn || "(미지정)";
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return Array.from(m.entries()).map(([pallet, count]) => ({ pallet, count }));
+  }, [rows]);
+
+  const palletColors = useMemo(() => {
+    const palette = [
+      "magenta",
+      "volcano",
+      "gold",
+      "lime",
+      "green",
+      "cyan",
+      "blue",
+      "geekblue",
+      "purple",
+    ];
+    const m = new Map<string, string>();
+    let i = 0;
+    for (const { pallet } of palletStats) {
+      if (pallet === "(미지정)") {
+        m.set(pallet, "default");
+        continue;
+      }
+      m.set(pallet, palette[i % palette.length]);
+      i++;
+    }
+    return m;
+  }, [palletStats]);
+
   const validSerials = useMemo(
     () => rows.map((r) => r.serial).filter((s) => !!s),
     [rows]
@@ -277,6 +312,31 @@ export default function App() {
         ) : (
           <Text>{v}</Text>
         ),
+    },
+    {
+      title: "팔레트",
+      dataIndex: "pallet_sn",
+      key: "pallet_sn",
+      width: 140,
+      render: (v: string | undefined, r: Row) => {
+        const color = palletColors.get(v || "(미지정)") ?? "default";
+        return (
+          <Input
+            value={v ?? ""}
+            size="small"
+            variant="borderless"
+            onChange={(e) => updateCell(r._rowId, "pallet_sn", e.target.value)}
+            placeholder="—"
+            addonBefore={
+              v ? (
+                <Tag color={color} style={{ margin: 0 }}>
+                  •
+                </Tag>
+              ) : null
+            }
+          />
+        );
+      },
     },
     {
       title: "시리얼",
@@ -438,6 +498,20 @@ export default function App() {
                   showIcon
                   message={`중복 시리얼 ${duplicateSerials.size}건 발견.`}
                 />
+              )}
+              {palletStats.length > 0 && (
+                <Space wrap size={[8, 8]}>
+                  <Text strong>팔레트별 모듈:</Text>
+                  {palletStats.map(({ pallet, count }) => (
+                    <Tag
+                      key={pallet}
+                      color={palletColors.get(pallet) ?? "default"}
+                      style={{ fontSize: 12 }}
+                    >
+                      {pallet} — {count}개
+                    </Tag>
+                  ))}
+                </Space>
               )}
 
               <Table<Row>

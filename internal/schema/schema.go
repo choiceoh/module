@@ -5,6 +5,7 @@ type ScanResult struct {
 	Serial   string `json:"serial"`
 	Suffix   string `json:"suffix"`
 	Source   string `json:"source"`
+	PalletSN string `json:"pallet_sn,omitempty"`
 	Notes    string `json:"notes,omitempty"`
 	Error    string `json:"error,omitempty"`
 }
@@ -17,6 +18,7 @@ type Column struct {
 
 var Columns = []Column{
 	{"filename", "파일", 28},
+	{"pallet_sn", "팔레트", 16},
 	{"serial", "시리얼", 32},
 	{"suffix", "접미사", 10},
 	{"source", "출처", 10},

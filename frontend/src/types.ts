@@ -5,12 +5,14 @@ export type ScanResult = {
   serial: string;
   suffix: string;
   source: ScanSource;
+  pallet_sn?: string;
   notes?: string;
   error?: string;
 };
 
 export const SCAN_COLUMNS: { key: keyof ScanResult; label: string; width: number }[] = [
   { key: "filename", label: "파일", width: 200 },
+  { key: "pallet_sn", label: "팔레트", width: 140 },
   { key: "serial", label: "시리얼", width: 260 },
   { key: "suffix", label: "접미사", width: 80 },
   { key: "source", label: "출처", width: 80 },

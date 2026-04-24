@@ -14,7 +14,8 @@
 
 param(
     [switch]$nsis,
-    [switch]$embed
+    [switch]$embed,
+    [switch]$debugBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -79,6 +80,11 @@ Push-Location $tmp
 try {
     $wailsArgs = @("build", "-clean")
     if ($nsis) { $wailsArgs += "-nsis" }
+    if ($debugBuild) {
+        $wailsArgs += "-debug"
+        $wailsArgs += "-devtools"
+        $wailsArgs += "-windowsconsole"
+    }
     & wails @wailsArgs
     $buildExit = $LASTEXITCODE
 } finally {

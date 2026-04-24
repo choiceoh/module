@@ -49,14 +49,38 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		return []schema.ScanResult{{Filename: filename, Error: "no barcode detected"}}
 	}
 
-	out := make([]schema.ScanResult, 0, len(hits))
+	texts := make([]string, 0, len(hits))
 	for _, h := range hits {
-		serial, suffix := splitSuffix(h.Text)
+		texts = append(texts, h.Text)
+	}
+	modules, pallet, others := barcode.Classify(texts)
+
+	if len(modules) == 0 {
+		if pallet != "" {
+			return []schema.ScanResult{{
+				Filename: filename,
+				PalletSN: pallet,
+				Source:   "barcode",
+				Notes:    "팔레트 번호만 검출 (모듈 시리얼 없음)",
+			}}
+		}
+		return []schema.ScanResult{{Filename: filename, Error: "no module serials detected"}}
+	}
+
+	out := make([]schema.ScanResult, 0, len(modules))
+	notesFromOthers := ""
+	if len(others) > 0 {
+		notesFromOthers = fmt.Sprintf("기타 %d건 검출(무시): %s", len(others), others[0])
+	}
+	for _, s := range modules {
+		serial, suffix := splitSuffix(s)
 		out = append(out, schema.ScanResult{
 			Filename: filename,
 			Serial:   serial,
 			Suffix:   suffix,
 			Source:   "barcode",
+			PalletSN: pallet,
+			Notes:    notesFromOthers,
 		})
 	}
 	return out
