@@ -1,18 +1,16 @@
 package excel
 
 import (
-	"io"
-
 	"github.com/xuri/excelize/v2"
 
-	"module-backend/internal/schema"
+	"module-scanner/internal/schema"
 )
 
-func WriteModules(w io.Writer, modules []schema.Module) error {
+func WriteScanResults(path string, rows []schema.ScanResult) error {
 	f := excelize.NewFile()
 	defer f.Close()
 
-	sheet := "Modules"
+	sheet := "Scans"
 	f.SetSheetName("Sheet1", sheet)
 
 	headerStyle, _ := f.NewStyle(&excelize.Style{
@@ -32,21 +30,16 @@ func WriteModules(w io.Writer, modules []schema.Module) error {
 		f.SetCellValue(sheet, cell, col.Label)
 		f.SetCellStyle(sheet, cell, cell, headerStyle)
 		colLetter, _ := excelize.ColumnNumberToName(i + 1)
-		f.SetColWidth(sheet, colLetter, colLetter, 18)
+		f.SetColWidth(sheet, colLetter, colLetter, col.Width)
 	}
 
-	for r, m := range modules {
-		row := r + 2
-		values := []string{
-			m.ModelName, m.Manufacturer, m.Category,
-			m.VoltageRated, m.CurrentRated, m.Interface,
-			m.TempRange, m.Dimensions, m.Weight, m.Notes,
-		}
+	for r, row := range rows {
+		values := []string{row.Filename, row.Serial, row.Suffix, row.Source, row.Notes}
 		for i, v := range values {
-			cell, _ := excelize.CoordinatesToCellName(i+1, row)
+			cell, _ := excelize.CoordinatesToCellName(i+1, r+2)
 			f.SetCellValue(sheet, cell, v)
 		}
 	}
 
-	return f.Write(w)
+	return f.SaveAs(path)
 }

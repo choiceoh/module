@@ -1,5 +1,28 @@
 package schema
 
+type ScanResult struct {
+	Filename string `json:"filename"`
+	Serial   string `json:"serial"`
+	Suffix   string `json:"suffix"`
+	Source   string `json:"source"`
+	Notes    string `json:"notes,omitempty"`
+	Error    string `json:"error,omitempty"`
+}
+
+type Column struct {
+	Key   string
+	Label string
+	Width float64
+}
+
+var Columns = []Column{
+	{"filename", "파일", 28},
+	{"serial", "시리얼", 32},
+	{"suffix", "접미사", 10},
+	{"source", "출처", 10},
+	{"notes", "비고", 24},
+}
+
 type Module struct {
 	ModelName    string `json:"model_name"`
 	Manufacturer string `json:"manufacturer"`
@@ -13,23 +36,7 @@ type Module struct {
 	Notes        string `json:"notes"`
 }
 
-var Columns = []struct {
-	Key   string
-	Label string
-}{
-	{"model_name", "모델명"},
-	{"manufacturer", "제조사"},
-	{"category", "카테고리"},
-	{"voltage_rated", "정격전압"},
-	{"current_rated", "정격전류"},
-	{"interface", "인터페이스"},
-	{"temp_range", "동작온도"},
-	{"dimensions", "치수"},
-	{"weight", "무게"},
-	{"notes", "비고"},
-}
-
-const JSONSchema = `{
+const ModuleJSONSchema = `{
   "type": "object",
   "properties": {
     "model_name":    {"type": "string"},
