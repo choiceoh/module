@@ -80,7 +80,7 @@ $robocopyArgs = @(
     $src, $tmp,
     "/E",
     "/XD", "node_modules", "build", "dist", ".git", ".claude",
-    "/XF", "*.exe", "*.log",
+    "/XF", "*.log",
     "/NFL", "/NDL", "/NJH", "/NJS", "/NP"
 )
 & robocopy @robocopyArgs | Out-Null

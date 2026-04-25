@@ -88,21 +88,29 @@ export async function scanFile(file: File): Promise<ScanResult[]> {
 }
 
 export async function scanFiles(files: File[]): Promise<ScanResult[]> {
+  const limit = 2; // max concurrent sidecar processes (memory bound)
   const all: ScanResult[] = [];
-  for (const f of files) {
-    try {
-      const rs = await scanFile(f);
-      all.push(...rs);
-    } catch (e) {
-      all.push({
-        filename: f.name,
-        serial: "",
-        suffix: "",
-        source: "barcode",
-        error: String(e),
-      });
+  let idx = 0;
+  async function worker() {
+    while (idx < files.length) {
+      const i = idx++;
+      const f = files[i];
+      try {
+        const rs = await scanFile(f);
+        all.push(...rs);
+      } catch (e) {
+        all.push({
+          filename: f.name,
+          serial: "",
+          suffix: "",
+          source: "barcode",
+          error: String(e),
+        });
+      }
     }
   }
+  const workers = Array.from({ length: Math.min(limit, files.length) }, () => worker());
+  await Promise.all(workers);
   return all;
 }
 

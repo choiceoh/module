@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -63,119 +62,70 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		return []schema.ScanResult{{Filename: filename, Error: "invalid data url: " + err.Error()}}
 	}
 
-	var (
-		barcodeHits []barcode.Hit
-		barcodeErr  error
-		ocrSerials  []string
-		ocrErr      error
-	)
-
-	// Primary: barcode (checksum-validated, slow but reliable).
-	bcHits, err := barcode.DecodeAll(data)
+	// OCR-only: run PaddleOCR sidecar (bundled rapidocr_onnxruntime CLI).
+	results, err := ocr.RecognizeBytes(data)
 	if err != nil {
-		barcodeErr = err
-	} else {
-		barcodeHits = bcHits
+		return []schema.ScanResult{{Filename: filename, Error: "ocr: " + err.Error()}}
 	}
 
-	// Count module-length hits.
-	moduleCount := 0
-	for _, h := range barcodeHits {
-		if len(h.Text) >= 18 {
-			moduleCount++
+	// Pair each serial-looking result with the nearest short-digit
+	// result (NO-column). Standard packing list layout: NO on the left
+	// of SN on the same row, so we look for digit-only text immediately
+	// to the left of each serial.
+	noBoxesByText := map[string]ocr.Result{}
+	for _, r := range results {
+		t := strings.TrimSpace(r.Text)
+		if isNoNumber(t) {
+			noBoxesByText[t] = r
 		}
 	}
-
-	// Dominant length + prefix among barcode module serials — used to
-	// filter OCR candidates. OCR has no checksum; we only accept OCR
-	// results that match both the exact length AND the common prefix
-	// of already-validated barcode serials.
-	dominantLen := 0
-	var barcodeSerials []string
-	if moduleCount > 0 {
-		lenCount := map[int]int{}
-		for _, h := range barcodeHits {
-			if len(h.Text) >= 18 {
-				lenCount[len(h.Text)]++
-				barcodeSerials = append(barcodeSerials, h.Text)
-			}
-		}
-		topCount := 0
-		for l, c := range lenCount {
-			if c > topCount {
-				topCount = c
-				dominantLen = l
-			}
-		}
-	}
-	// Use prefix shared by ALL barcode serials so we don't over-filter
-	// OCR candidates that happen to differ in a middle digit.
-	dominantPrefix := longestCommonPrefix(barcodeSerials, len(barcodeSerials))
-
-	// Gap-fill: if barcode didn't reach target, run PaddleOCR. OCR has
-	// no checksum, so we sliding-window extract substrings of the exact
-	// barcode-dominant length and require them to match the dominant
-	// prefix before accepting.
-	const target = 36
-	if moduleCount < target && dominantLen > 0 {
-		results, err := ocr.Recognize(data)
-		if err != nil {
-			ocrErr = err
-			log.Printf("ocr recognize failed for %s: %v", filename, err)
-		} else {
-			raw := ocr.ExtractSerialCandidates(results, dominantLen, 40)
-			seen := map[string]struct{}{}
-			for _, s := range raw {
-				if len(s) < dominantLen {
-					continue
-				}
-				for i := 0; i+dominantLen <= len(s); i++ {
-					sub := s[i : i+dominantLen]
-					if dominantPrefix != "" && !strings.HasPrefix(sub, dominantPrefix) {
-						continue
-					}
-					if _, dup := seen[sub]; dup {
-						continue
-					}
-					seen[sub] = struct{}{}
-					ocrSerials = append(ocrSerials, sub)
-				}
-			}
-		}
+	var noResults []ocr.Result
+	for _, r := range noBoxesByText {
+		noResults = append(noResults, r)
 	}
 
+	// Extract alphanumeric serial candidates
 	sourceBy := map[string]string{}
 	noBy := map[string]int{}
-	correctedBy := map[string]string{} // serial → raw text if corrected
-	for _, h := range barcodeHits {
-		t := strings.TrimSpace(h.Text)
-		if t == "" {
-			continue
-		}
-		sourceBy[t] = "barcode"
-		if h.Corrected {
-			correctedBy[t] = h.RawText
+	correctedBy := map[string]string{}
+	boxBy := map[string]ocr.Result{}
+	for _, r := range results {
+		for _, s := range extractAlnumRuns(strings.ToUpper(strings.TrimSpace(r.Text)), 6, 40) {
+			if _, has := sourceBy[s]; has {
+				continue
+			}
+			sourceBy[s] = "ocr"
+			boxBy[s] = r
 		}
 	}
-	for _, s := range ocrSerials {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
+	// Assign NO by spatial proximity: pick the digit-only box whose Y
+	// range overlaps with the serial's and whose X is to the left.
+	for s, sr := range boxBy {
+		cy := (sr.Y0 + sr.Y1) / 2
+		bestN := 0
+		bestDx := 1 << 30
+		for _, nb := range noResults {
+			ny := (nb.Y0 + nb.Y1) / 2
+			if abs(ny-cy) > (sr.Y1-sr.Y0)/2+(nb.Y1-nb.Y0)/2+8 {
+				continue
+			}
+			if nb.X1 > sr.X0 {
+				continue // not to the left
+			}
+			dx := sr.X0 - nb.X1
+			if dx < bestDx {
+				bestDx = dx
+				n, _ := atoiSafe(strings.TrimSpace(nb.Text))
+				bestN = n
+			}
 		}
-		if _, has := sourceBy[s]; !has {
-			sourceBy[s] = "ocr"
+		if bestN > 0 {
+			noBy[s] = bestN
 		}
 	}
 
 	if len(sourceBy) == 0 {
-		msg := "no barcode detected"
-		if barcodeErr != nil {
-			msg = "no barcode: " + barcodeErr.Error()
-		}
-		if ocrErr != nil {
-			msg += "; ocr: " + ocrErr.Error()
-		}
-		return []schema.ScanResult{{Filename: filename, Error: msg}}
+		return []schema.ScanResult{{Filename: filename, Error: "no serials detected"}}
 	}
 
 	allTexts := make([]string, 0, len(sourceBy))
@@ -255,6 +205,60 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		})
 	}
 	return out
+}
+
+// isNoNumber matches text that looks like a NO-column entry (1-3 digits).
+func isNoNumber(s string) bool {
+	if len(s) == 0 || len(s) > 3 {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// extractAlnumRuns returns uppercase alphanumeric substrings of
+// reasonable length from the input text.
+func extractAlnumRuns(s string, minLen, maxLen int) []string {
+	var out []string
+	run := make([]byte, 0, 32)
+	flush := func() {
+		if len(run) >= minLen && len(run) <= maxLen {
+			out = append(out, string(run))
+		}
+		run = run[:0]
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+			run = append(run, c)
+		} else {
+			flush()
+		}
+	}
+	flush()
+	return out
+}
+
+func atoiSafe(s string) (int, bool) {
+	n := 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return 0, false
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n, true
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // longestCommonPrefix returns the longest prefix shared by at least

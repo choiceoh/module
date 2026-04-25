@@ -308,19 +308,16 @@ export default function App() {
   const cellStyle = { fontSize: 12 };
   const columns = [
     {
-      title: "파일",
-      dataIndex: "filename",
-      key: "filename",
-      width: 140,
+      title: "NO",
+      dataIndex: "photo_no",
+      key: "photo_no",
+      width: 50,
       fixed: "left" as const,
-      render: (v: string, r: Row) =>
-        r.error ? (
-          <Text type="danger" title={r.error} style={cellStyle}>
-            {v} ⚠
-          </Text>
-        ) : (
-          <Text style={cellStyle}>{v}</Text>
-        ),
+      render: (v: number | undefined, r: Row) => (
+        <Text type={r.error ? "danger" : undefined} title={r.error} style={cellStyle}>
+          {v && v > 0 ? v : r.error ? "⚠" : ""}
+        </Text>
+      ),
     },
     {
       title: "팔레트",
@@ -352,13 +349,13 @@ export default function App() {
       title: "시리얼",
       dataIndex: "serial",
       key: "serial",
-      width: 200,
+      width: 320,
       render: (v: string, r: Row) => (
         <Input
           value={v}
           size="small"
           variant="borderless"
-          style={cellStyle}
+          style={{ fontSize: 15, fontFamily: "ui-monospace, 'Cascadia Mono', Consolas, monospace" }}
           onChange={(e) => updateCell(r._rowId, "serial", e.target.value)}
           status={v && duplicateSerials.has(v) ? "warning" : undefined}
           suffix={
@@ -460,7 +457,7 @@ export default function App() {
             <Space direction="vertical" size="middle" style={{ width: "100%" }}>
               <Upload.Dragger
                 multiple
-                accept="image/*"
+                accept="image/*,application/pdf,.pdf"
                 fileList={fileList}
                 beforeUpload={() => false}
                 onChange={(info) => setFileList(info.fileList)}
