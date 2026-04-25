@@ -451,18 +451,51 @@ func Classify(texts []string) (modules []string, pallet string, others []string)
 		}
 	}
 
+	var candidates []string
 	for _, t := range texts {
 		if len(t) == domLen {
 			modules = append(modules, t)
 			continue
 		}
-		if pallet == "" {
-			pallet = t
-		} else {
-			others = append(others, t)
+		candidates = append(candidates, t)
+	}
+	// Pick the best pallet candidate from non-module strings: needs to
+	// be long enough (≥8), look like an alphanumeric code (both letters
+	// and digits), and — all else equal — be the longest. Short OCR
+	// noise like "NO", "SN", "9", product codes like "TSM-720" get
+	// relegated to `others`.
+	bestIdx := -1
+	for i, c := range candidates {
+		if len(c) < 8 || !hasLettersAndDigits(c) {
+			continue
+		}
+		if bestIdx < 0 || len(c) > len(candidates[bestIdx]) {
+			bestIdx = i
 		}
 	}
+	if bestIdx >= 0 {
+		pallet = candidates[bestIdx]
+	}
+	for i, c := range candidates {
+		if i == bestIdx {
+			continue
+		}
+		others = append(others, c)
+	}
 	return
+}
+
+func hasLettersAndDigits(s string) bool {
+	letters, digits := 0, 0
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			letters++
+		case r >= '0' && r <= '9':
+			digits++
+		}
+	}
+	return letters >= 2 && digits >= 2
 }
 
 // repairOutliersByPrefix patches hits whose prefix deviates from the

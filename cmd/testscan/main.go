@@ -54,9 +54,7 @@ func testOne(path string, useOCR, verbose bool) {
 
 	moduleLenCount := map[int]int{}
 	for _, h := range bcHits {
-		if len(h.Text) >= 18 {
-			moduleLenCount[len(h.Text)]++
-		}
+		moduleLenCount[len(h.Text)]++
 	}
 	dominantLen, topCount := 0, 0
 	for l, c := range moduleLenCount {
@@ -71,10 +69,10 @@ func testOne(path string, useOCR, verbose bool) {
 		ocrTime    time.Duration
 		ocrErr     error
 	)
-	// Compute dominant prefix from barcode-verified serials
+	// Compute dominant prefix from barcode-verified serials (majority length)
 	var bcSerials []string
 	for _, h := range bcHits {
-		if len(h.Text) >= 18 {
+		if len(h.Text) == dominantLen {
 			bcSerials = append(bcSerials, h.Text)
 		}
 	}
@@ -83,7 +81,7 @@ func testOne(path string, useOCR, verbose bool) {
 	const target = 36
 	if useOCR && topCount < target && dominantLen > 0 {
 		t := time.Now()
-		results, err := ocr.Recognize(data)
+		results, err := ocr.RecognizeBytes(data)
 		ocrTime = time.Since(t)
 		if err != nil {
 			ocrErr = err

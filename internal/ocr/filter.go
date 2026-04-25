@@ -9,6 +9,8 @@ import (
 // reasonable length from each recognized result. OCR often picks up
 // adjacent digits (the "NO" column number) as a prefix; regex extraction
 // peels those off by matching a strict A-Z0-9 run.
+//
+// Result is defined in ocr.go.
 func ExtractSerialCandidates(results []Result, minLen, maxLen int) []string {
 	rePat := `[A-Z0-9]{` + itoa(minLen) + `,` + itoa(maxLen) + `}`
 	re := regexp.MustCompile(rePat)
