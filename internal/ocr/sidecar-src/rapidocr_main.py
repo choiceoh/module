@@ -14,6 +14,32 @@ import tempfile
 from rapidocr_onnxruntime import RapidOCR
 
 
+def _models_dir() -> str:
+    # PyInstaller --onefile extracts bundled data under sys._MEIPASS.
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, "models")
+
+
+def _build_reader() -> RapidOCR:
+    d = _models_dir()
+    det = os.path.join(d, "det.onnx")
+    rec = os.path.join(d, "rec.onnx")
+    cls = os.path.join(d, "cls.onnx")
+    keys = os.path.join(d, "keys.txt")
+    missing = [p for p in (det, rec, cls, keys) if not os.path.isfile(p)]
+    if missing:
+        raise FileNotFoundError(
+            "missing OCR model files: " + ", ".join(missing)
+            + " (see internal/ocr/sidecar-src/BUILD.md)"
+        )
+    return RapidOCR(
+        det_model_path=det,
+        rec_model_path=rec,
+        cls_model_path=cls,
+        rec_keys_path=keys,
+    )
+
+
 def ocr_image(reader, path, y_offset=0):
     result, _ = reader(path)
     raws = []
@@ -57,7 +83,7 @@ def write_response(payload: dict) -> None:
 
 
 def main():
-    reader = RapidOCR()
+    reader = _build_reader()
     # Signal ready so the parent can know init is done.
     write_response({"ready": True})
 
