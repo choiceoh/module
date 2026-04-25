@@ -1,17 +1,15 @@
 package schema
 
 type ScanResult struct {
-	Filename  string  `json:"filename"`
-	PhotoNo   int     `json:"photo_no,omitempty"`
-	Serial    string  `json:"serial"`
-	Suffix    string  `json:"suffix"`
-	Source    string  `json:"source"`
-	Score     float32 `json:"score,omitempty"`
-	PalletSN  string  `json:"pallet_sn,omitempty"`
-	Corrected bool    `json:"corrected,omitempty"`
-	RawText   string  `json:"raw_text,omitempty"`
-	Notes     string  `json:"notes,omitempty"`
-	Error     string  `json:"error,omitempty"`
+	Filename string  `json:"filename"`
+	PhotoNo  int     `json:"photo_no,omitempty"`
+	Serial   string  `json:"serial"`
+	Suffix   string  `json:"suffix"`
+	Source   string  `json:"source"`
+	Score    float32 `json:"score,omitempty"`
+	PalletSN string  `json:"pallet_sn,omitempty"`
+	Notes    string  `json:"notes,omitempty"`
+	Error    string  `json:"error,omitempty"`
 }
 
 type Column struct {
