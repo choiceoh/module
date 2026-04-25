@@ -2,6 +2,7 @@ package presets
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -34,8 +35,6 @@ const (
 
 func defaultSettings() Settings {
 	return Settings{
-		VLLMBaseURL:     "https://sensation-glider-unknotted.ngrok-free.dev/v1",
-		VLLMModel:       "gemma4",
 		UseVLLMFallback: false,
 	}
 }
@@ -63,7 +62,18 @@ func Load() (*Store, error) {
 	if err != nil {
 		return s, nil
 	}
-	_ = json.Unmarshal(data, s)
+	if err := json.Unmarshal(data, s); err != nil {
+		log.Printf("presets: %s 파싱 실패, 기본값으로 진행: %v", p, err)
+		// Reset to a clean default store; partial unmarshal may have
+		// populated some fields with garbage.
+		s = &Store{
+			Masters:        map[string]MasterPreset{},
+			RecentProjects: []string{},
+			RecentPresets:  []MasterPreset{},
+			Settings:       defaultSettings(),
+		}
+		return s, nil
+	}
 	if s.Masters == nil {
 		s.Masters = map[string]MasterPreset{}
 	}
@@ -72,12 +82,6 @@ func Load() (*Store, error) {
 	}
 	if s.RecentPresets == nil {
 		s.RecentPresets = []MasterPreset{}
-	}
-	if s.Settings.VLLMBaseURL == "" {
-		s.Settings.VLLMBaseURL = defaultSettings().VLLMBaseURL
-	}
-	if s.Settings.VLLMModel == "" {
-		s.Settings.VLLMModel = defaultSettings().VLLMModel
 	}
 	return s, nil
 }
@@ -101,16 +105,25 @@ func (s *Store) Save() error {
 	return os.WriteFile(p, data, 0o644)
 }
 
+// masterKey normalises a path so the same file is matched regardless
+// of slash style. Full path is intentional: two files with the same
+// basename in different folders should not collide.
+func masterKey(masterPath string) string {
+	abs, err := filepath.Abs(masterPath)
+	if err != nil {
+		abs = masterPath
+	}
+	return filepath.Clean(abs)
+}
+
 func (s *Store) GetMaster(masterPath string) (MasterPreset, bool) {
-	key := filepath.Base(masterPath)
-	p, ok := s.Masters[key]
+	p, ok := s.Masters[masterKey(masterPath)]
 	return p, ok
 }
 
 func (s *Store) PutMaster(masterPath string, preset MasterPreset) {
 	s.mu.Lock()
-	key := filepath.Base(masterPath)
-	s.Masters[key] = preset
+	s.Masters[masterKey(masterPath)] = preset
 	s.mu.Unlock()
 }
 
