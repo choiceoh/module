@@ -132,7 +132,7 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	for t := range sourceBy {
 		allTexts = append(allTexts, t)
 	}
-	modules, pallet, others := barcode.Classify(allTexts)
+	modules, pallet, _ := barcode.Classify(allTexts)
 
 	if len(modules) == 0 {
 		if pallet != "" {
@@ -163,10 +163,6 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	})
 
 	out := make([]schema.ScanResult, 0, len(modules))
-	notesFromOthers := ""
-	if len(others) > 0 {
-		notesFromOthers = fmt.Sprintf("기타 %d건 검출(무시): %s", len(others), others[0])
-	}
 	for _, s := range modules {
 		serial, suffix := splitSuffix(s)
 		src := sourceBy[s]
@@ -183,14 +179,9 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 			corrected = true
 			rawText = raw
 		}
-		notes := notesFromOthers
+		notes := ""
 		if corrected {
-			note := fmt.Sprintf("수정됨 (원본: %s)", rawText)
-			if notes != "" {
-				notes = note + "; " + notes
-			} else {
-				notes = note
-			}
+			notes = fmt.Sprintf("수정됨 (원본: %s)", rawText)
 		}
 		score := float32(0)
 		if b, ok := boxBy[s]; ok {
