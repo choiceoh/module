@@ -13,17 +13,10 @@ type MasterPreset struct {
 	CellType   string `json:"cell_type"`
 }
 
-type Settings struct {
-	VLLMBaseURL     string `json:"vllm_base_url"`
-	VLLMModel       string `json:"vllm_model"`
-	UseVLLMFallback bool   `json:"use_vllm_fallback"`
-}
-
 type Store struct {
 	Masters        map[string]MasterPreset `json:"masters"`
 	RecentProjects []string                `json:"recent_projects"`
 	RecentPresets  []MasterPreset          `json:"recent_presets"`
-	Settings       Settings                `json:"settings"`
 
 	mu sync.Mutex
 }
@@ -32,12 +25,6 @@ const (
 	storeDir  = ".module-scanner"
 	storeFile = "presets.json"
 )
-
-func defaultSettings() Settings {
-	return Settings{
-		UseVLLMFallback: false,
-	}
-}
 
 func path() (string, error) {
 	home, err := os.UserHomeDir()
@@ -52,7 +39,6 @@ func Load() (*Store, error) {
 		Masters:        map[string]MasterPreset{},
 		RecentProjects: []string{},
 		RecentPresets:  []MasterPreset{},
-		Settings:       defaultSettings(),
 	}
 	p, err := path()
 	if err != nil {
@@ -64,13 +50,10 @@ func Load() (*Store, error) {
 	}
 	if err := json.Unmarshal(data, s); err != nil {
 		log.Printf("presets: %s 파싱 실패, 기본값으로 진행: %v", p, err)
-		// Reset to a clean default store; partial unmarshal may have
-		// populated some fields with garbage.
 		s = &Store{
 			Masters:        map[string]MasterPreset{},
 			RecentProjects: []string{},
 			RecentPresets:  []MasterPreset{},
-			Settings:       defaultSettings(),
 		}
 		return s, nil
 	}
@@ -166,16 +149,4 @@ func (s *Store) PushRecentPreset(p MasterPreset) {
 		filtered = filtered[:20]
 	}
 	s.RecentPresets = filtered
-}
-
-func (s *Store) GetSettings() Settings {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.Settings
-}
-
-func (s *Store) PutSettings(v Settings) {
-	s.mu.Lock()
-	s.Settings = v
-	s.mu.Unlock()
 }

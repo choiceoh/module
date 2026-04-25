@@ -9,11 +9,9 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	rt "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"module-scanner/internal/ai"
 	"module-scanner/internal/barcode"
 	"module-scanner/internal/excel"
 	"module-scanner/internal/masterbook"
@@ -26,26 +24,14 @@ import (
 type App struct {
 	ctx context.Context
 
-	mu       sync.Mutex
-	master   *masterbook.Book
-	presets  *presets.Store
-	aiClient *ai.Client
+	mu      sync.Mutex
+	master  *masterbook.Book
+	presets *presets.Store
 }
 
 func NewApp() *App {
 	store, _ := presets.Load()
-	app := &App{presets: store}
-	app.refreshAIClient()
-	return app
-}
-
-func (a *App) refreshAIClient() {
-	s := a.presets.GetSettings()
-	if s.UseVLLMFallback && s.VLLMBaseURL != "" && s.VLLMModel != "" {
-		a.aiClient = ai.New(s.VLLMBaseURL, s.VLLMModel)
-	} else {
-		a.aiClient = nil
-	}
+	return &App{presets: store}
 }
 
 func (a *App) Startup(ctx context.Context) {
@@ -460,53 +446,6 @@ func (a *App) BuildReport(req BuildRequest) (*report.BuildResult, error) {
 	_ = a.presets.Save()
 
 	return res, nil
-}
-
-func (a *App) GetSettings() presets.Settings {
-	return a.presets.GetSettings()
-}
-
-type VLLMStatus struct {
-	Enabled   bool   `json:"enabled"`
-	URL       string `json:"url"`
-	Model     string `json:"model"`
-	OK        bool   `json:"ok"`
-	Error     string `json:"error,omitempty"`
-	LatencyMs int64  `json:"latency_ms"`
-}
-
-func (a *App) PingVLLM() VLLMStatus {
-	s := a.presets.GetSettings()
-	status := VLLMStatus{
-		Enabled: s.UseVLLMFallback,
-		URL:     s.VLLMBaseURL,
-		Model:   s.VLLMModel,
-	}
-	if s.VLLMBaseURL == "" || s.VLLMModel == "" {
-		status.Error = "URL/모델 미설정"
-		return status
-	}
-	client := ai.New(s.VLLMBaseURL, s.VLLMModel)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	start := time.Now()
-	err := client.Ping(ctx)
-	status.LatencyMs = time.Since(start).Milliseconds()
-	if err != nil {
-		status.Error = err.Error()
-		return status
-	}
-	status.OK = true
-	return status
-}
-
-func (a *App) SaveSettings(s presets.Settings) error {
-	a.presets.PutSettings(s)
-	err := a.presets.Save()
-	a.mu.Lock()
-	a.refreshAIClient()
-	a.mu.Unlock()
-	return err
 }
 
 func decodeDataURL(s string) ([]byte, error) {
