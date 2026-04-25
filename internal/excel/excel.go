@@ -30,6 +30,7 @@ func WriteScanResults(path string, rows []schema.ScanResult) error {
 		return fmt.Errorf("create header style: %w", err)
 	}
 
+	lastColLetter := ""
 	for i, col := range schema.Columns {
 		cell, err := excelize.CoordinatesToCellName(i+1, 1)
 		if err != nil {
@@ -42,12 +43,15 @@ func WriteScanResults(path string, rows []schema.ScanResult) error {
 			return fmt.Errorf("header col name %d: %w", i+1, err)
 		}
 		f.SetColWidth(sheet, colLetter, colLetter, col.Width)
+		lastColLetter = colLetter
 	}
 
 	for r, row := range rows {
-		noVal := ""
+		// NO 컬럼은 정수로 저장해야 Excel 정렬이 1,2,3,…,10,11 순으로
+		// 동작. 문자열로 넣으면 1,10,11,2,20,3 순으로 깨짐.
+		var noVal any
 		if row.PhotoNo > 0 {
-			noVal = fmt.Sprintf("%d", row.PhotoNo)
+			noVal = row.PhotoNo
 		}
 		values := []any{row.Filename, noVal, row.PalletSN, row.Serial, row.Suffix, row.Source, row.Notes}
 		for i, v := range values {
@@ -55,7 +59,25 @@ func WriteScanResults(path string, rows []schema.ScanResult) error {
 			if err != nil {
 				return fmt.Errorf("data cell (%d,%d): %w", i+1, r+2, err)
 			}
+			if v == nil {
+				continue
+			}
 			f.SetCellValue(sheet, cell, v)
+		}
+	}
+
+	// 헤더 행 고정 + 자동 필터 — 큰 시트에서 스크롤·정렬·필터 기본 UX.
+	if err := f.SetPanes(sheet, &excelize.Panes{
+		Freeze:      true,
+		YSplit:      1,
+		TopLeftCell: "A2",
+		ActivePane:  "bottomLeft",
+	}); err != nil {
+		return fmt.Errorf("freeze header: %w", err)
+	}
+	if lastColLetter != "" {
+		if err := f.AutoFilter(sheet, fmt.Sprintf("A1:%s1", lastColLetter), []excelize.AutoFilterOptions{}); err != nil {
+			return fmt.Errorf("autofilter: %w", err)
 		}
 	}
 

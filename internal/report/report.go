@@ -59,6 +59,7 @@ func Build(path string, serials []string, book *masterbook.Book, meta Meta) (*Bu
 		return nil, fmt.Errorf("create missing-row style: %w", err)
 	}
 
+	lastColLetter := ""
 	for i, h := range headers {
 		cell, err := excelize.CoordinatesToCellName(i+1, 1)
 		if err != nil {
@@ -71,14 +72,17 @@ func Build(path string, serials []string, book *masterbook.Book, meta Meta) (*Bu
 			return nil, fmt.Errorf("header col name %d: %w", i+1, err)
 		}
 		f.SetColWidth(sheet, col, col, widths[i])
+		lastColLetter = col
 	}
 
 	result := &BuildResult{Lines: make([]Line, 0, len(serials))}
 	for i, serial := range serials {
 		row := i + 2
-		no := ""
+		// NO 컬럼은 정수로 저장해야 Excel 정렬이 1,2,3,…,10,11 순으로
+		// 동작. 문자열로 넣으면 1,10,11,2,20,3 순으로 깨짐.
+		var no any
 		if meta.AutoNumber {
-			no = itoa(i + 1)
+			no = i + 1
 		}
 
 		master, ok := book.Lookup(serial)
@@ -121,6 +125,21 @@ func Build(path string, serials []string, book *masterbook.Book, meta Meta) (*Bu
 		result.Lines = append(result.Lines, line)
 	}
 
+	// 헤더 행 고정 + 자동 필터 — 큰 시트에서 스크롤·정렬·필터 기본 UX.
+	if err := f.SetPanes(sheet, &excelize.Panes{
+		Freeze:      true,
+		YSplit:      1,
+		TopLeftCell: "A2",
+		ActivePane:  "bottomLeft",
+	}); err != nil {
+		return nil, fmt.Errorf("freeze header: %w", err)
+	}
+	if lastColLetter != "" {
+		if err := f.AutoFilter(sheet, fmt.Sprintf("A1:%s1", lastColLetter), []excelize.AutoFilterOptions{}); err != nil {
+			return nil, fmt.Errorf("autofilter: %w", err)
+		}
+	}
+
 	if err := f.SaveAs(path); err != nil {
 		return nil, err
 	}
@@ -135,23 +154,4 @@ func borders() []excelize.Border {
 		{Type: "top", Color: "#BFBFBF", Style: 1},
 		{Type: "bottom", Color: "#BFBFBF", Style: 1},
 	}
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	buf := make([]byte, 0, 10)
-	for n > 0 {
-		buf = append([]byte{byte('0' + n%10)}, buf...)
-		n /= 10
-	}
-	if neg {
-		buf = append([]byte{'-'}, buf...)
-	}
-	return string(buf)
 }
