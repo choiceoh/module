@@ -1,5 +1,15 @@
 package schema
 
+// Box is the bounding box of an OCR detection in image-pixel
+// coordinates (top-left origin). Set only for OCR-sourced rows so the
+// frontend can show a zoomed preview around the serial.
+type Box struct {
+	X0 int `json:"x0"`
+	Y0 int `json:"y0"`
+	X1 int `json:"x1"`
+	Y1 int `json:"y1"`
+}
+
 type ScanResult struct {
 	Filename string  `json:"filename"`
 	PhotoNo  int     `json:"photo_no,omitempty"`
@@ -7,6 +17,7 @@ type ScanResult struct {
 	Suffix   string  `json:"suffix"`
 	Source   string  `json:"source"`
 	Score    float32 `json:"score,omitempty"`
+	Box      *Box    `json:"box,omitempty"`
 	PalletSN string  `json:"pallet_sn,omitempty"`
 	Notes    string  `json:"notes,omitempty"`
 	Error    string  `json:"error,omitempty"`

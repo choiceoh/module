@@ -31,6 +31,7 @@ import {
   PlusOutlined,
   FileSearchOutlined,
   ExportOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import {
   emptyRow,
@@ -47,6 +48,7 @@ import {
   type BuildResult,
   type MasterInfo,
 } from "./api";
+import { ImagePreviewModal, canPreview } from "./ImagePreviewModal";
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
@@ -89,6 +91,11 @@ export default function App() {
 
   const [diffOpen, setDiffOpen] = useState(false);
   const [expectedText, setExpectedText] = useState("");
+
+  // Object URLs for the source images, keyed by filename. Held only
+  // for the current session — losing them on refresh is acceptable.
+  const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
 
   const [version, setVersion] = useState<string>("");
 
@@ -210,6 +217,18 @@ export default function App() {
       message.warning("먼저 이미지를 업로드해주세요.");
       return;
     }
+    // Capture object URLs before scan so the preview modal can show
+    // the source image even after fileList is cleared. Same-filename
+    // re-uploads override (last write wins; rare in practice).
+    setImageUrls((prev) => {
+      const next = new Map(prev);
+      for (const f of files) {
+        const old = next.get(f.name);
+        if (old) URL.revokeObjectURL(old);
+        next.set(f.name, URL.createObjectURL(f));
+      }
+      return next;
+    });
     setScanning(true);
     try {
       const results = await scanFiles(files);
@@ -316,10 +335,36 @@ export default function App() {
     setRows((prev) => prev.filter((r) => r._rowId !== rowId));
   };
 
-  const clearAll = () => setRows([]);
+  const clearAll = () => {
+    setRows([]);
+    setImageUrls((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return new Map();
+    });
+    setPreviewIdx(null);
+  };
 
   const cellStyle = { fontSize: 12 };
   const columns = [
+    {
+      title: "",
+      key: "_preview",
+      width: 36,
+      fixed: "left" as const,
+      render: (_: unknown, r: Row, idx: number) => {
+        const previewable = canPreview(r) && imageUrls.has(r.filename);
+        return (
+          <Button
+            type="text"
+            size="small"
+            icon={<EyeOutlined />}
+            disabled={!previewable}
+            title={previewable ? "원본 이미지 미리보기" : "미리보기 불가"}
+            onClick={() => setPreviewIdx(idx)}
+          />
+        );
+      },
+    },
     {
       title: "NO",
       dataIndex: "photo_no",
@@ -953,6 +998,22 @@ export default function App() {
           )}
         </Space>
       </Modal>
+
+      {previewIdx !== null && rows[previewIdx] && (
+        <ImagePreviewModal
+          row={rows[previewIdx]}
+          imageUrl={imageUrls.get(rows[previewIdx].filename)}
+          hasPrev={previewIdx > 0}
+          hasNext={previewIdx < rows.length - 1}
+          onPrev={() => setPreviewIdx((i) => (i !== null && i > 0 ? i - 1 : i))}
+          onNext={() =>
+            setPreviewIdx((i) =>
+              i !== null && i < rows.length - 1 ? i + 1 : i
+            )
+          }
+          onClose={() => setPreviewIdx(null)}
+        />
+      )}
     </Layout>
   );
 }

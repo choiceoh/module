@@ -159,8 +159,10 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 			photoNo = n
 		}
 		score := float32(0)
+		var box *schema.Box
 		if b, ok := boxBy[s]; ok {
 			score = b.Score
+			box = &schema.Box{X0: b.X0, Y0: b.Y0, X1: b.X1, Y1: b.Y1}
 		}
 		out = append(out, schema.ScanResult{
 			Filename: filename,
@@ -169,6 +171,7 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 			Suffix:   suffix,
 			Source:   src,
 			Score:    score,
+			Box:      box,
 			PalletSN: pallet,
 		})
 	}
