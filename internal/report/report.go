@@ -1,6 +1,8 @@
 package report
 
 import (
+	"fmt"
+
 	"github.com/xuri/excelize/v2"
 
 	"module-scanner/internal/masterbook"
@@ -40,22 +42,34 @@ func Build(path string, serials []string, book *masterbook.Book, meta Meta) (*Bu
 	sheet := "Sheet1"
 	f.SetSheetName(f.GetSheetName(0), sheet)
 
-	headerStyle, _ := f.NewStyle(&excelize.Style{
+	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true},
 		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#E8E8E8"}, Pattern: 1},
 		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
 		Border:    borders(),
 	})
-	missingStyle, _ := f.NewStyle(&excelize.Style{
+	if err != nil {
+		return nil, fmt.Errorf("create header style: %w", err)
+	}
+	missingStyle, err := f.NewStyle(&excelize.Style{
 		Fill:   excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1},
 		Border: borders(),
 	})
+	if err != nil {
+		return nil, fmt.Errorf("create missing-row style: %w", err)
+	}
 
 	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		cell, err := excelize.CoordinatesToCellName(i+1, 1)
+		if err != nil {
+			return nil, fmt.Errorf("header cell %d: %w", i+1, err)
+		}
 		f.SetCellValue(sheet, cell, h)
 		f.SetCellStyle(sheet, cell, cell, headerStyle)
-		col, _ := excelize.ColumnNumberToName(i + 1)
+		col, err := excelize.ColumnNumberToName(i + 1)
+		if err != nil {
+			return nil, fmt.Errorf("header col name %d: %w", i+1, err)
+		}
 		f.SetColWidth(sheet, col, col, widths[i])
 	}
 
@@ -92,7 +106,10 @@ func Build(path string, serials []string, book *masterbook.Book, meta Meta) (*Bu
 		}
 
 		for c, v := range values {
-			cell, _ := excelize.CoordinatesToCellName(c+1, row)
+			cell, err := excelize.CoordinatesToCellName(c+1, row)
+			if err != nil {
+				return nil, fmt.Errorf("data cell (%d,%d): %w", c+1, row, err)
+			}
 			if v != nil {
 				f.SetCellValue(sheet, cell, v)
 			}
