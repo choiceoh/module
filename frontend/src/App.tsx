@@ -21,7 +21,6 @@ import {
   Row as AntRow,
   Col,
   Modal,
-  Switch,
   Select,
 } from "antd";
 import type { UploadFile } from "antd/es/upload/interface";
@@ -32,7 +31,6 @@ import {
   PlusOutlined,
   FileSearchOutlined,
   ExportOutlined,
-  SettingOutlined,
 } from "@ant-design/icons";
 import {
   emptyRow,
@@ -43,14 +41,11 @@ import {
 import {
   buildReport,
   exportExcel,
-  getSettings,
   getVersion,
   pickAndLoadMaster,
-  saveSettings,
   scanFiles,
   type BuildResult,
   type MasterInfo,
-  type Settings,
 } from "./api";
 
 const { Header, Content } = Layout;
@@ -95,13 +90,6 @@ export default function App() {
   const [diffOpen, setDiffOpen] = useState(false);
   const [expectedText, setExpectedText] = useState("");
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settings, setSettings] = useState<Settings>({
-    vllm_base_url: "",
-    vllm_model: "",
-    use_vllm_fallback: false,
-  });
-  const [settingsDraft, setSettingsDraft] = useState<Settings>(settings);
   const [version, setVersion] = useState<string>("");
 
   useEffect(() => {
@@ -109,31 +97,6 @@ export default function App() {
       .then(setVersion)
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    getSettings()
-      .then((s) => {
-        setSettings(s);
-        setSettingsDraft(s);
-      })
-      .catch(() => {});
-  }, []);
-
-  const openSettings = () => {
-    setSettingsDraft(settings);
-    setSettingsOpen(true);
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      await saveSettings(settingsDraft);
-      setSettings(settingsDraft);
-      setSettingsOpen(false);
-      message.success("설정 저장됨");
-    } catch (e) {
-      message.error(String(e));
-    }
-  };
 
   useEffect(() => {
     if (master?.has_preset) {
@@ -528,7 +491,6 @@ export default function App() {
           borderBottom: "1px solid #f0f0f0",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
         }}
       >
         <Space align="baseline">
@@ -541,9 +503,6 @@ export default function App() {
             </Text>
           )}
         </Space>
-        <Button icon={<SettingOutlined />} onClick={openSettings}>
-          설정
-        </Button>
       </Header>
       <Content style={{ padding: 24, maxWidth: 1400, margin: "0 auto", width: "100%" }}>
         <Space direction="vertical" size="large" style={{ width: "100%" }}>
@@ -992,63 +951,6 @@ export default function App() {
               위에 시리얼을 붙여넣으면 매칭/누락/잉여 통계가 표시됩니다.
             </Text>
           )}
-        </Space>
-      </Modal>
-
-      <Modal
-        title="설정"
-        open={settingsOpen}
-        onCancel={() => setSettingsOpen(false)}
-        onOk={handleSaveSettings}
-        okText="저장"
-        cancelText="취소"
-        width={560}
-      >
-        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          <Alert
-            type="info"
-            showIcon
-            message="vLLM (OCR 폴백용) — 현재 미호출. 추후 바코드 디코딩 실패 시 이미지의 하단 시리얼 텍스트를 vLLM으로 읽는 폴백 기능에 사용될 값."
-          />
-          <Form layout="vertical">
-            <Form.Item label="vLLM Base URL" tooltip="OpenAI 호환 엔드포인트 (/v1)">
-              <Input
-                value={settingsDraft.vllm_base_url}
-                onChange={(e) =>
-                  setSettingsDraft({ ...settingsDraft, vllm_base_url: e.target.value })
-                }
-                placeholder="https://.../v1 또는 http://localhost:8000/v1"
-              />
-            </Form.Item>
-            <Form.Item label="모델명">
-              <Input
-                value={settingsDraft.vllm_model}
-                onChange={(e) =>
-                  setSettingsDraft({ ...settingsDraft, vllm_model: e.target.value })
-                }
-                placeholder="gemma4"
-              />
-            </Form.Item>
-            <Form.Item
-              label="vLLM 자동 사용 (테이블일 때만)"
-              tooltip="바코드가 5개 이상 검출되면 포장 명세서로 판단해 vLLM을 추가 호출하고 결과를 합칩니다. 단일 라벨 사진은 빠른 바코드만 사용."
-            >
-              <Switch
-                checked={settingsDraft.use_vllm_fallback}
-                onChange={(v) =>
-                  setSettingsDraft({ ...settingsDraft, use_vllm_fallback: v })
-                }
-              />
-              <Text type="secondary" style={{ marginLeft: 8 }}>
-                {settingsDraft.use_vllm_fallback
-                  ? "테이블 감지 시 vLLM 추가 호출"
-                  : "바코드만 (빠름)"}
-              </Text>
-            </Form.Item>
-          </Form>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            저장 위치: <code>~/.module-scanner/presets.json</code>
-          </Text>
         </Space>
       </Modal>
     </Layout>
