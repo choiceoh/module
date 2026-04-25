@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Button,
   Card,
@@ -62,14 +62,17 @@ const newRowId = () => `row-${Date.now()}-${++rowSeq}`;
 const sourceColor: Record<ScanSource, string> = {
   barcode: "green",
   manual: "blue",
-  vllm: "orange",
+  ocr: "orange",
 };
 
 const sourceLabel: Record<ScanSource, string> = {
   barcode: "바코드",
   manual: "수동",
-  vllm: "VLM",
+  ocr: "OCR",
 };
+
+// OCR rows below this confidence are flagged for review.
+const OCR_LOW_CONFIDENCE = 0.85;
 
 export default function App() {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -88,6 +91,9 @@ export default function App() {
 
   const [building, setBuilding] = useState(false);
   const [lastBuild, setLastBuild] = useState<BuildResult | null>(null);
+
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [expectedText, setExpectedText] = useState("");
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>({
@@ -139,8 +145,9 @@ export default function App() {
   const duplicateSerials = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of rows) {
-      if (!r.serial) continue;
-      counts.set(r.serial, (counts.get(r.serial) ?? 0) + 1);
+      const s = r.serial?.trim();
+      if (!s) continue;
+      counts.set(s, (counts.get(s) ?? 0) + 1);
     }
     const dups = new Set<string>();
     counts.forEach((c, s) => {
@@ -148,6 +155,18 @@ export default function App() {
     });
     return dups;
   }, [rows]);
+
+  const lowConfidenceCount = useMemo(
+    () =>
+      rows.filter(
+        (r) =>
+          r.source === "ocr" &&
+          typeof r.score === "number" &&
+          r.score > 0 &&
+          r.score < OCR_LOW_CONFIDENCE
+      ).length,
+    [rows]
+  );
 
   const palletStats = useMemo(() => {
     const m = new Map<string, number>();
@@ -188,6 +207,37 @@ export default function App() {
     () => rows.map((r) => r.serial).filter((s) => !!s),
     [rows]
   );
+
+  const expectedSerials = useMemo(() => {
+    // Accept newlines, commas, tabs, or whitespace as separators.
+    const tokens = expectedText
+      .split(/[\s,;]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    return Array.from(new Set(tokens));
+  }, [expectedText]);
+
+  const diffStats = useMemo(() => {
+    const scanned = new Set(
+      rows.map((r) => r.serial?.trim()).filter((s): s is string => !!s)
+    );
+    const expected = new Set(expectedSerials);
+    const matched: string[] = [];
+    const missing: string[] = [];
+    const extra: string[] = [];
+    expected.forEach((s) => {
+      if (scanned.has(s)) matched.push(s);
+      else missing.push(s);
+    });
+    scanned.forEach((s) => {
+      if (!expected.has(s)) extra.push(s);
+    });
+    return { matched, missing, extra };
+  }, [rows, expectedSerials]);
+
+  const missingSet = useMemo(() => new Set(diffStats.missing), [diffStats]);
+  const extraSet = useMemo(() => new Set(diffStats.extra), [diffStats]);
+  const diffActive = expectedSerials.length > 0;
 
   const handleScan = async () => {
     const files = fileList
@@ -350,23 +400,67 @@ export default function App() {
       dataIndex: "serial",
       key: "serial",
       width: 320,
-      render: (v: string, r: Row) => (
-        <Input
-          value={v}
-          size="small"
-          variant="borderless"
-          style={{ fontSize: 15, fontFamily: "ui-monospace, 'Cascadia Mono', Consolas, monospace" }}
-          onChange={(e) => updateCell(r._rowId, "serial", e.target.value)}
-          status={v && duplicateSerials.has(v) ? "warning" : undefined}
-          suffix={
-            v && duplicateSerials.has(v) ? (
-              <Tag color="orange" style={{ margin: 0, fontSize: 10 }}>
-                중복
-              </Tag>
-            ) : null
-          }
-        />
-      ),
+      render: (v: string, r: Row) => {
+        const trimmed = v?.trim() ?? "";
+        const isDup = !!trimmed && duplicateSerials.has(trimmed);
+        const isLowConf =
+          r.source === "ocr" &&
+          typeof r.score === "number" &&
+          r.score > 0 &&
+          r.score < OCR_LOW_CONFIDENCE;
+        const isExtra = diffActive && !!trimmed && extraSet.has(trimmed);
+        const isMatched = diffActive && !!trimmed && !isExtra;
+        const tags: ReactNode[] = [];
+        if (isDup) {
+          tags.push(
+            <Tag key="dup" color="orange" style={{ margin: 0, fontSize: 10 }}>
+              중복
+            </Tag>
+          );
+        }
+        if (isLowConf) {
+          tags.push(
+            <Tag
+              key="lowconf"
+              color="gold"
+              style={{ margin: 0, fontSize: 10 }}
+              title={`OCR 신뢰도 ${(r.score! * 100).toFixed(0)}% — 검수 권장`}
+            >
+              {`${(r.score! * 100).toFixed(0)}%`}
+            </Tag>
+          );
+        }
+        if (isExtra) {
+          tags.push(
+            <Tag key="extra" color="red" style={{ margin: 0, fontSize: 10 }}>
+              잉여
+            </Tag>
+          );
+        } else if (isMatched) {
+          tags.push(
+            <Tag key="ok" color="green" style={{ margin: 0, fontSize: 10 }}>
+              ✓
+            </Tag>
+          );
+        }
+        const status = isDup || isExtra ? "warning" : undefined;
+        return (
+          <Input
+            value={v}
+            size="small"
+            variant="borderless"
+            style={{
+              fontSize: 15,
+              fontFamily:
+                "ui-monospace, 'Cascadia Mono', Consolas, monospace",
+              background: isLowConf && !isDup && !isExtra ? "#fffbe6" : undefined,
+            }}
+            onChange={(e) => updateCell(r._rowId, "serial", e.target.value)}
+            status={status}
+            suffix={tags.length > 0 ? <Space size={2}>{tags}</Space> : null}
+          />
+        );
+      },
     },
     {
       title: "접미사",
@@ -504,6 +598,17 @@ export default function App() {
                 >
                   원본 스캔 엑셀
                 </Button>
+                <Button onClick={() => setDiffOpen(true)}>
+                  기대 리스트 비교
+                  {diffActive && (
+                    <Tag
+                      color={diffStats.missing.length > 0 ? "red" : "green"}
+                      style={{ marginLeft: 6, fontSize: 11 }}
+                    >
+                      {diffStats.matched.length}/{expectedSerials.length}
+                    </Tag>
+                  )}
+                </Button>
               </Space>
 
               {rows.some((r) => r.error) && (
@@ -518,6 +623,28 @@ export default function App() {
                   type="warning"
                   showIcon
                   message={`중복 시리얼 ${duplicateSerials.size}건 발견.`}
+                />
+              )}
+              {lowConfidenceCount > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={`OCR 신뢰도 낮은 행 ${lowConfidenceCount}건 — 시리얼 칸이 노란색으로 강조됩니다.`}
+                />
+              )}
+              {diffActive && (
+                <Alert
+                  type={diffStats.missing.length > 0 ? "warning" : "success"}
+                  showIcon
+                  message={
+                    `기대 ${expectedSerials.length}건 중 ${diffStats.matched.length}건 매칭, ` +
+                    `누락 ${diffStats.missing.length}건, 잉여 ${diffStats.extra.length}건.`
+                  }
+                  action={
+                    <Button size="small" onClick={() => setDiffOpen(true)}>
+                      자세히
+                    </Button>
+                  }
                 />
               )}
               {palletStats.length > 0 && (
@@ -752,6 +879,121 @@ export default function App() {
           </Card>
         </Space>
       </Content>
+
+      <Modal
+        title="기대 시리얼 비교"
+        open={diffOpen}
+        onCancel={() => setDiffOpen(false)}
+        footer={
+          <Space>
+            <Button onClick={() => setExpectedText("")} disabled={!expectedText}>
+              비우기
+            </Button>
+            <Button type="primary" onClick={() => setDiffOpen(false)}>
+              닫기
+            </Button>
+          </Space>
+        }
+        width={720}
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            기대 시리얼을 한 줄에 하나씩 붙여넣으세요. 쉼표·탭·공백 구분도 됩니다. 입력은 모달을 닫아도 유지됩니다.
+          </Text>
+          <Input.TextArea
+            value={expectedText}
+            onChange={(e) => setExpectedText(e.target.value)}
+            placeholder={"PC2025...\nPC2025...\nPC2025..."}
+            autoSize={{ minRows: 6, maxRows: 14 }}
+            style={{ fontFamily: "ui-monospace, 'Cascadia Mono', Consolas, monospace", fontSize: 13 }}
+          />
+          {diffActive ? (
+            <>
+              <AntRow gutter={16}>
+                <Col span={6}>
+                  <Statistic title="기대" value={expectedSerials.length} />
+                </Col>
+                <Col span={6}>
+                  <Statistic
+                    title="매칭"
+                    value={diffStats.matched.length}
+                    valueStyle={{ color: "#389e0d" }}
+                  />
+                </Col>
+                <Col span={6}>
+                  <Statistic
+                    title="누락"
+                    value={diffStats.missing.length}
+                    valueStyle={{
+                      color: diffStats.missing.length > 0 ? "#d4380d" : undefined,
+                    }}
+                  />
+                </Col>
+                <Col span={6}>
+                  <Statistic
+                    title="잉여"
+                    value={diffStats.extra.length}
+                    valueStyle={{
+                      color: diffStats.extra.length > 0 ? "#d46b08" : undefined,
+                    }}
+                  />
+                </Col>
+              </AntRow>
+              {diffStats.missing.length > 0 && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={`누락 ${diffStats.missing.length}건 — 스캔 결과에 없음`}
+                  description={
+                    <Input.TextArea
+                      readOnly
+                      value={diffStats.missing.join("\n")}
+                      autoSize={{ minRows: 2, maxRows: 8 }}
+                      style={{
+                        fontFamily:
+                          "ui-monospace, 'Cascadia Mono', Consolas, monospace",
+                        fontSize: 12,
+                        marginTop: 4,
+                      }}
+                    />
+                  }
+                />
+              )}
+              {diffStats.extra.length > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={`잉여 ${diffStats.extra.length}건 — 기대 리스트에 없음`}
+                  description={
+                    <Input.TextArea
+                      readOnly
+                      value={diffStats.extra.join("\n")}
+                      autoSize={{ minRows: 2, maxRows: 8 }}
+                      style={{
+                        fontFamily:
+                          "ui-monospace, 'Cascadia Mono', Consolas, monospace",
+                        fontSize: 12,
+                        marginTop: 4,
+                      }}
+                    />
+                  }
+                />
+              )}
+              {missingSet.size === 0 && extraSet.size === 0 && (
+                <Alert
+                  type="success"
+                  showIcon
+                  message="모든 시리얼이 기대 리스트와 정확히 일치합니다."
+                />
+              )}
+            </>
+          ) : (
+            <Text type="secondary">
+              위에 시리얼을 붙여넣으면 매칭/누락/잉여 통계가 표시됩니다.
+            </Text>
+          )}
+        </Space>
+      </Modal>
 
       <Modal
         title="설정"

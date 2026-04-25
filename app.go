@@ -192,12 +192,17 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 				notes = note
 			}
 		}
+		score := float32(0)
+		if b, ok := boxBy[s]; ok {
+			score = b.Score
+		}
 		out = append(out, schema.ScanResult{
 			Filename:  filename,
 			PhotoNo:   photoNo,
 			Serial:    serial,
 			Suffix:    suffix,
 			Source:    src,
+			Score:     score,
 			PalletSN:  pallet,
 			Corrected: corrected,
 			RawText:   rawText,
