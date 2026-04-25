@@ -1,4 +1,4 @@
-export type ScanSource = "barcode" | "manual" | "vllm";
+export type ScanSource = "barcode" | "manual" | "ocr";
 
 export type ScanResult = {
   filename: string;
@@ -6,6 +6,7 @@ export type ScanResult = {
   serial: string;
   suffix: string;
   source: ScanSource;
+  score?: number;
   pallet_sn?: string;
   notes?: string;
   error?: string;
