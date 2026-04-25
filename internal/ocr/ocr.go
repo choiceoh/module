@@ -2,8 +2,9 @@
 // once; subsequent requests only pay inference cost.
 //
 // Protocol (line-delimited JSON):
-//   stdin:  <absolute image/pdf path>\n
-//   stdout: {"raw":[...]}\n  or  {"error":"..."}\n  or  {"ready":true}\n
+//
+//	stdin:  <absolute image/pdf path>\n
+//	stdout: {"raw":[...]}\n  or  {"error":"..."}\n  or  {"ready":true}\n
 package ocr
 
 import (
@@ -88,9 +89,18 @@ func doInit() error {
 	return spawn()
 }
 
+// spawn locks sidecarMu and calls spawnLocked. Use this when the
+// caller does not already hold the mutex (e.g. doInit during Init).
 func spawn() error {
 	sidecarMu.Lock()
 	defer sidecarMu.Unlock()
+	return spawnLocked()
+}
+
+// spawnLocked starts a fresh sidecar process and waits for its
+// "ready" signal. The caller must hold sidecarMu — Recognize re-spawns
+// from inside its own locked section, and re-locking would deadlock.
+func spawnLocked() error {
 	if sidecar != nil && sidecar.cmd != nil && sidecar.cmd.ProcessState == nil && sidecar.cmd.Process != nil {
 		// Already running.
 		return nil
@@ -113,7 +123,9 @@ func spawn() error {
 	proc.stdout = bufio.NewReaderSize(stdout, 1<<20)
 	sidecar = proc
 
-	// Wait for {"ready":true} with timeout.
+	// Wait for {"ready":true} with timeout. On timeout we kill the
+	// process so the reader goroutine unblocks (ReadBytes returns
+	// EOF) instead of leaking.
 	ready := make(chan error, 1)
 	go func() {
 		line, err := proc.stdout.ReadBytes('\n')
@@ -134,8 +146,14 @@ func spawn() error {
 	}()
 	select {
 	case err := <-ready:
+		if err != nil {
+			_ = proc.cmd.Process.Kill()
+			sidecar = nil
+		}
 		return err
 	case <-time.After(60 * time.Second):
+		_ = proc.cmd.Process.Kill()
+		sidecar = nil
 		return fmt.Errorf("sidecar init timeout (60s); stderr=%s", proc.stderr.String())
 	}
 }
@@ -168,16 +186,17 @@ func Recognize(imagePath string) ([]Result, error) {
 	defer sidecarMu.Unlock()
 
 	if sidecar == nil {
-		if err := spawn(); err != nil {
+		if err := spawnLocked(); err != nil {
 			return nil, err
 		}
 	}
 
 	// Write path
 	if _, err := sidecar.stdin.Write([]byte(imagePath + "\n")); err != nil {
-		// Sidecar might have died; respawn once and retry.
+		// Sidecar might have died; respawn once and retry. We are
+		// already holding sidecarMu, so call spawnLocked directly.
 		sidecar = nil
-		if err := spawn(); err != nil {
+		if err := spawnLocked(); err != nil {
 			return nil, fmt.Errorf("respawn sidecar: %w", err)
 		}
 		if _, err := sidecar.stdin.Write([]byte(imagePath + "\n")); err != nil {

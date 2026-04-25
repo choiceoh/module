@@ -73,7 +73,6 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	// Extract alphanumeric serial candidates
 	sourceBy := map[string]string{}
 	noBy := map[string]int{}
-	correctedBy := map[string]string{}
 	boxBy := map[string]ocr.Result{}
 	for _, r := range results {
 		for _, s := range extractAlnumRuns(strings.ToUpper(strings.TrimSpace(r.Text)), 6, 40) {
@@ -159,31 +158,18 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 		if n, ok := noBy[s]; ok {
 			photoNo = n
 		}
-		corrected := false
-		rawText := ""
-		if raw, ok := correctedBy[s]; ok {
-			corrected = true
-			rawText = raw
-		}
-		notes := ""
-		if corrected {
-			notes = fmt.Sprintf("수정됨 (원본: %s)", rawText)
-		}
 		score := float32(0)
 		if b, ok := boxBy[s]; ok {
 			score = b.Score
 		}
 		out = append(out, schema.ScanResult{
-			Filename:  filename,
-			PhotoNo:   photoNo,
-			Serial:    serial,
-			Suffix:    suffix,
-			Source:    src,
-			Score:     score,
-			PalletSN:  pallet,
-			Corrected: corrected,
-			RawText:   rawText,
-			Notes:     notes,
+			Filename: filename,
+			PhotoNo:  photoNo,
+			Serial:   serial,
+			Suffix:   suffix,
+			Source:   src,
+			Score:    score,
+			PalletSN: pallet,
 		})
 	}
 	return out

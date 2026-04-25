@@ -2,6 +2,7 @@ package masterbook
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/xuri/excelize/v2"
@@ -55,6 +56,7 @@ func Load(path string) (*Book, *LoadSummary, error) {
 		}
 
 		header := []string{}
+		idx := columnMap{}
 		lineNo := 0
 		for rows.Next() {
 			lineNo++
@@ -64,11 +66,17 @@ func Load(path string) (*Book, *LoadSummary, error) {
 			}
 			if lineNo == 1 {
 				header = cols
+				idx = columnIndex(header)
+				if idx.sn < 0 {
+					// No SN column → can't index. Skip the whole sheet
+					// instead of silently producing 0 rows from it.
+					log.Printf("masterbook: 시트 %q 에 SN 컬럼이 없어 스킵", sheet)
+					break
+				}
 				continue
 			}
 			summary.TotalRows++
 
-			idx := columnIndex(header)
 			row, ok := parseRow(cols, idx, sheet, lineNo)
 			if !ok {
 				continue
@@ -84,6 +92,9 @@ func Load(path string) (*Book, *LoadSummary, error) {
 	}
 
 	summary.IndexSize = len(book.Index)
+	if summary.IndexSize == 0 {
+		return nil, nil, fmt.Errorf("마스터에서 SN 컬럼을 찾지 못했거나 데이터가 비어 있습니다 (검사한 시트: %d개)", len(book.Sheets))
+	}
 	return book, summary, nil
 }
 

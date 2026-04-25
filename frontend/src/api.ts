@@ -65,10 +65,33 @@ function bridge() {
   return window.go.main.App;
 }
 
+// One image rarely needs more than a few seconds; cap at 60s to
+// surface a hung sidecar instead of letting the UI spin forever.
+const SCAN_TIMEOUT_MS = 60_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} 타임아웃 (${ms / 1000}초)`)),
+      ms
+    );
+  });
+  return Promise.race([p, timeout]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+  });
+}
+
 function fileToDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("FileReader 가 string 을 반환하지 않았습니다"));
+      }
+    };
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
@@ -76,7 +99,11 @@ function fileToDataURL(file: File): Promise<string> {
 
 export async function scanFile(file: File): Promise<ScanResult[]> {
   const dataURL = await fileToDataURL(file);
-  return await bridge().ScanImage(file.name, dataURL);
+  return withTimeout(
+    bridge().ScanImage(file.name, dataURL),
+    SCAN_TIMEOUT_MS,
+    "스캔"
+  );
 }
 
 export async function scanFiles(files: File[]): Promise<ScanResult[]> {
@@ -95,7 +122,7 @@ export async function scanFiles(files: File[]): Promise<ScanResult[]> {
           filename: f.name,
           serial: "",
           suffix: "",
-          source: "barcode",
+          source: "ocr",
           error: String(e),
         });
       }
