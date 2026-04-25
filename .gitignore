@@ -6,6 +6,12 @@ bin/
 build/bin/
 build/windows/
 
+# OCR sidecar build artifacts (large binaries — fetched/built locally)
+internal/ocr/sidecar-src/models/
+internal/ocr/sidecar-src/build/
+internal/ocr/sidecar-src/dist/
+internal/ocr/sidecar-src/*.spec
+
 # Wails
 frontend/wailsjs/
 
