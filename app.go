@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/disintegration/imaging"
 	rt "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"module-scanner/internal/barcode"
@@ -47,6 +49,13 @@ func (a *App) ScanImage(filename, dataURL string) []schema.ScanResult {
 	if err != nil {
 		return []schema.ScanResult{{Filename: filename, Error: "invalid data url: " + err.Error()}}
 	}
+
+	// Browsers auto-rotate JPEGs based on EXIF orientation, but the OCR
+	// sidecar reads raw pixel coordinates. If we don't normalise here,
+	// the bounding boxes we send back to the frontend won't line up with
+	// the browser-displayed image (preview overlay would be wrong). PDFs
+	// go through PyMuPDF in the sidecar, no EXIF concern.
+	data = normalizeOrientation(data)
 
 	// OCR-only: run PaddleOCR sidecar (bundled rapidocr_onnxruntime CLI).
 	results, err := ocr.RecognizeBytes(data)
@@ -443,6 +452,26 @@ func decodeDataURL(s string) ([]byte, error) {
 		return nil, fmt.Errorf("not a data url")
 	}
 	return base64.StdEncoding.DecodeString(s[i+1:])
+}
+
+// normalizeOrientation re-encodes a JPEG with EXIF auto-rotation
+// applied so the pixel data matches what browsers display. PNGs and
+// PDFs are returned unchanged (no EXIF, or handled elsewhere). On any
+// decode/encode error we fall back to the raw bytes — OCR still works,
+// just with potentially mis-aligned coords for rotated photos.
+func normalizeOrientation(data []byte) []byte {
+	if detectMIME(data) != "image/jpeg" {
+		return data
+	}
+	img, err := imaging.Decode(bytes.NewReader(data), imaging.AutoOrientation(true))
+	if err != nil {
+		return data
+	}
+	var buf bytes.Buffer
+	if err := imaging.Encode(&buf, img, imaging.JPEG, imaging.JPEGQuality(95)); err != nil {
+		return data
+	}
+	return buf.Bytes()
 }
 
 func splitSuffix(text string) (string, string) {

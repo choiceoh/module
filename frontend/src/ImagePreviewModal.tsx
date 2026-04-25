@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Modal, Space, Tag, Typography } from "antd";
+import { Button, Modal, Space, Spin, Tag, Typography } from "antd";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import type { Row } from "./types";
 
@@ -45,6 +45,7 @@ export function ImagePreviewModal({
 }: Props) {
   const [zoomed, setZoomed] = useState(true);
   const [imgDim, setImgDim] = useState<{ w: number; h: number } | null>(null);
+  const [imgError, setImgError] = useState(false);
 
   // Reset zoom + image dimensions whenever the row (and therefore the
   // source image) changes. Without this, navigating between rows from
@@ -52,6 +53,7 @@ export function ImagePreviewModal({
   useEffect(() => {
     setZoomed(true);
     setImgDim(null);
+    setImgError(false);
   }, [row.filename, imageUrl]);
 
   // Arrow keys navigate between rows; Esc closes (Modal default).
@@ -126,17 +128,24 @@ export function ImagePreviewModal({
               const img = e.currentTarget;
               setImgDim({ w: img.naturalWidth, h: img.naturalHeight });
             }}
+            onError={() => setImgError(true)}
           />
-          {imgDim && (
-            <div
-              style={{
-                width: "100%",
-                maxHeight: "70vh",
-                display: "flex",
-                justifyContent: "center",
-                background: "#fafafa",
-              }}
-            >
+          <div
+            style={{
+              width: "100%",
+              minHeight: 240,
+              maxHeight: "70vh",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#fafafa",
+            }}
+          >
+            {imgError ? (
+              <Text type="danger">이미지 로드에 실패했습니다.</Text>
+            ) : !imgDim ? (
+              <Spin tip="이미지 로딩 중..." />
+            ) : (
               <svg
                 viewBox={viewBox}
                 style={{ width: "100%", height: "auto", maxHeight: "70vh" }}
@@ -158,8 +167,8 @@ export function ImagePreviewModal({
                   vectorEffect="non-scaling-stroke"
                 />
               </svg>
-            </div>
-          )}
+            )}
+          </div>
           <Space style={{ marginTop: 12, width: "100%", justifyContent: "space-between" }}>
             <Button onClick={() => setZoomed((z) => !z)}>
               {zoomed ? "전체 보기" : "확대 보기"}

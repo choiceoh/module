@@ -999,21 +999,31 @@ export default function App() {
         </Space>
       </Modal>
 
-      {previewIdx !== null && rows[previewIdx] && (
-        <ImagePreviewModal
-          row={rows[previewIdx]}
-          imageUrl={imageUrls.get(rows[previewIdx].filename)}
-          hasPrev={previewIdx > 0}
-          hasNext={previewIdx < rows.length - 1}
-          onPrev={() => setPreviewIdx((i) => (i !== null && i > 0 ? i - 1 : i))}
-          onNext={() =>
-            setPreviewIdx((i) =>
-              i !== null && i < rows.length - 1 ? i + 1 : i
-            )
+      {previewIdx !== null && rows[previewIdx] && (() => {
+        // Skip rows that have no preview (PDFs, manual entries, errors)
+        // so arrow nav jumps to the next/prev *previewable* row.
+        const isPreviewable = (r: Row) =>
+          canPreview(r) && imageUrls.has(r.filename);
+        const findStep = (from: number, dir: 1 | -1): number | null => {
+          for (let i = from + dir; i >= 0 && i < rows.length; i += dir) {
+            if (isPreviewable(rows[i])) return i;
           }
-          onClose={() => setPreviewIdx(null)}
-        />
-      )}
+          return null;
+        };
+        const prevIdx = findStep(previewIdx, -1);
+        const nextIdx = findStep(previewIdx, 1);
+        return (
+          <ImagePreviewModal
+            row={rows[previewIdx]}
+            imageUrl={imageUrls.get(rows[previewIdx].filename)}
+            hasPrev={prevIdx !== null}
+            hasNext={nextIdx !== null}
+            onPrev={() => prevIdx !== null && setPreviewIdx(prevIdx)}
+            onNext={() => nextIdx !== null && setPreviewIdx(nextIdx)}
+            onClose={() => setPreviewIdx(null)}
+          />
+        );
+      })()}
     </Layout>
   );
 }
