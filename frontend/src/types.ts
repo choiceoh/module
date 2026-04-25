@@ -1,5 +1,12 @@
 export type ScanSource = "barcode" | "manual" | "ocr";
 
+export type Box = {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+};
+
 export type ScanResult = {
   filename: string;
   photo_no?: number;
@@ -7,6 +14,7 @@ export type ScanResult = {
   suffix: string;
   source: ScanSource;
   score?: number;
+  box?: Box;
   pallet_sn?: string;
   notes?: string;
   error?: string;
