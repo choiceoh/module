@@ -52,4 +52,4 @@
 
 ### 교차참조
 산조 일반 `00-index.md` · 가야금 주법 `../../instrument-idiom/korean/gayageum.md` ·
-토리(남도 계면조) `../korean-regional-toris.md` · 창작 실전 `../korean-creative-art-music.md`
+토리(남도 계면조) `../toris/00-index.md` · 창작 실전 `../korean-creative-art-music.md`

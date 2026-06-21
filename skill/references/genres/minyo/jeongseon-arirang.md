@@ -1,6 +1,6 @@
 # 정선아리랑 — 메나리토리 채보 분석
 
-> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../korean-regional-toris.md`.
+> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../toris/00-index.md`.
 
 ## 개요
 강원도 정선 일대의 아리랑. 향토민요 **「정선 엮음아라리」** 의 메나리토리 음조직과
@@ -46,4 +46,4 @@
 
 ### 교차참조
 진도아리랑(남도 대비) `jindo-arirang.md` · 본조아리랑(경기 대비) `arirang-bonjo.md` ·
-토리 이론 `../korean-regional-toris.md`
+토리 이론 `../toris/00-index.md`

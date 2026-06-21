@@ -25,4 +25,4 @@
 
 ### 교차참조
 산조 일반 `00-index.md` · 해금 주법 `../../instrument-idiom/korean/haegeum.md` ·
-토리(경기/남도) `../korean-regional-toris.md`
+토리(경기/남도) `../toris/00-index.md`

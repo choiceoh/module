@@ -1,6 +1,6 @@
 # 진도아리랑 — 육자배기(남도)토리 채보 분석
 
-> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../korean-regional-toris.md`.
+> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../toris/00-index.md`.
 > 같은 토리의 기악 즉흥은 `../sanjo/00-index.md`(남도 산조·시나위).
 
 ## 개요
@@ -48,5 +48,5 @@
 
 ### 교차참조
 정선아리랑(메나리 대비) `jeongseon-arirang.md` · 토리 이론
-`../korean-regional-toris.md` · 남도 산조·시나위 `../sanjo/00-index.md` ·
+`../toris/00-index.md` · 남도 산조·시나위 `../sanjo/00-index.md` ·
 악기 주법 `../../instrument-idiom/korean/`

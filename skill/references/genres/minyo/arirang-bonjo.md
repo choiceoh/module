@@ -1,6 +1,6 @@
 # 본조아리랑 (경기아리랑) — 경토리(신경토리) 채보 분석
 
-> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../korean-regional-toris.md`.
+> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../toris/00-index.md`.
 
 ## 개요
 1926년 나운규 영화 「아리랑」의 주제가로 퍼진 **통속민요**. "본조(本調)아리랑" =
@@ -46,4 +46,4 @@
 
 ### 교차참조
 도라지타령(진경토리 대비) `dorajitaryeong.md` · 정선아리랑 `jeongseon-arirang.md` ·
-진도아리랑 `jindo-arirang.md` · 토리 이론 `../korean-regional-toris.md`
+진도아리랑 `jindo-arirang.md` · 토리 이론 `../toris/00-index.md`

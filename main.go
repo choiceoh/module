@@ -38,7 +38,11 @@ var skillFS embed.FS
 
 var httpClient = &http.Client{Timeout: 600 * time.Second}
 
-const maxIters = 8
+// 에이전트 루프 최대 반복 수(= read_doc 라운드 + 마지막 답). 프로 작업용으로 넉넉히:
+// 토리·악기·장르 문서가 작은 단위로 분할돼 있어, 깊은 질문은 여러 문서를 참고해야
+// 한다 — 중간에 끊기지 않도록 상한을 높인다. 마지막 반복에서는 도구를 막아 반드시
+// 완성된 답을 내게 한다(handleChat 참조). 총 소요는 httpClient 타임아웃(600s)이 가둔다.
+const maxIters = 16
 
 // 프런트엔드 → 백엔드 요청(원시 입력; 메시지/지식 구성은 백엔드가 함)
 type uiReq struct {
@@ -315,10 +319,16 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	var readDocs []string
 
 	for i := 0; i < maxIters; i++ {
-		body, _ := json.Marshal(map[string]any{
-			"model": req.Model, "temperature": 0.8,
-			"messages": messages, "tools": tools, "tool_choice": "auto",
-		})
+		payload := map[string]any{
+			"model": req.Model, "temperature": 0.8, "messages": messages,
+		}
+		// 마지막 반복에서는 도구를 빼 모델이 반드시 최종 답을 내게 한다 — 반복 한도에
+		// 걸려도 '중단 에러' 대신 지금까지 읽은 문서로 답을 완성하도록(프로 작업 보호).
+		if i < maxIters-1 {
+			payload["tools"] = tools
+			payload["tool_choice"] = "auto"
+		}
+		body, _ := json.Marshal(payload)
 		respBytes, status, err := callProvider(req, body)
 		if err != nil {
 			msg := err.Error()

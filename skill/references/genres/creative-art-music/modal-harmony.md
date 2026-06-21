@@ -11,7 +11,7 @@
 ## 선법별 구성음(이동도 기준, 실제는 율명·비평균율)
 - **평조**(밝고 꿋꿋, 우조 계열): 대략 **솔-라-도-레-미**. 중심 솔(또는 도).
 - **계면조**(짙은 한): 대략 **라-도-레-미-솔**, '라' 중심에 **미·시 계열을 떨고 꺾는다**
-  (지역 토리에 따라 다름 → `../korean-regional-toris.md`).
+  (지역 토리에 따라 다름 → `../toris/00-index.md`).
 > 평균율 계명은 근사. 계면조의 떠는음·꺾는음은 미분음이라 화성으로 고정하면 안 된다(아래).
 
 ## 처방 1 — 4·5도 적층 보이싱 (quartal/quintal)
@@ -54,5 +54,5 @@
 
 ### 교차참조
 허브 `../korean-creative-art-music.md` · 텍스처 `sigimsae-texture.md` · 관현악
-`gugak-orchestration.md` · 토리 `../korean-regional-toris.md` · 서양 모달
+`gugak-orchestration.md` · 토리 `../toris/00-index.md` · 서양 모달
 `../../harmony/modal-harmony.md` · 보이싱 `../../../assets/progressions-catalog.md`
