@@ -1,71 +1,61 @@
 # sojeongcompose
 
-**창작국악 작곡가를 위한 AI 작곡 보조.**
+**창작국악 작곡가를 위한 AI 작곡 보조 (독립 실행파일).**
 
-Finale로 작업하는 창작국악 작곡가가, **Finale에서 내보낸 MusicXML**을 넣고 질문하면
-다음 **선율·화성·시김새·장단 아이디어**를 받는 도구. AI는 **OpenAI 호환 API**
-(GLM·OpenAI·로컬 등)를 쓴다.
+Finale에서 내보낸 **MusicXML**(`.xml`/`.mxl`)을 넣고 질문하면, 다음 **선율·화성·
+시김새·장단 아이디어**를 받는다. AI는 **OpenAI 호환 API**(GLM·OpenAI 등)를 쓰며,
+앱 안에 든 작곡 스킬 문서를 **에이전트가 필요한 것만 직접 찾아 읽고** 답한다.
 
 > 창작국악 = 서양 화성·작곡 기법을 배운 작곡가가 오선보·평균율 위에서 국악기·국악
 > 어법(장단·평조/계면조·시김새)을 살려 작곡하는 현대 한국 창작음악.
 
 ---
 
-## 두 가지 실행 방법
+## 구조 (왜 독립 실행파일인가)
 
-### A. 독립 실행파일 (권장 — CORS 문제 없음)
-`main.go` 가 `index.html` 을 내장해 localhost로 띄우고 **백엔드가 AI를 호출**한다
-(브라우저 직접 호출이 아니라 CORS 차단이 없음). 더블클릭하면 기본 브라우저로 열린다.
+`main.go` 가 `index.html`(UI) 과 작곡 스킬 문서 전체(`skill/`)를 바이너리에 내장해
+localhost로 띄운다. `/api/chat` 은 **LLM 에이전트 루프**:
 
-빌드:
+1. 모델에게 `read_doc(path)` 도구를 준다(스킬 문서 목록 + SKILL.md 를 시스템 프롬프트에).
+2. 모델이 질문을 보고 `references/00-navigation.md` 등 **필요한 문서 1~3개만** 읽는다.
+3. 그 가이드에 근거해 답한다. (스킬이 의도한 **네이티브 lazy-loading** — 전부 안 먹임)
+
+→ 브라우저가 아니라 **백엔드가 API를 호출**하므로 CORS 문제가 없고, 지식을 프런트에
+욱여넣지 않아 UI가 가볍다.
+
+## 실행
+
+배포된 실행파일(또는 macOS `.app`)을 받아 실행 → 기본 브라우저로 자동으로 열린다.
+창(터미널/앱)을 닫으면 종료.
+
+> **미서명** 바이너리라 첫 실행 시 OS 경고: macOS는 `.app` 우클릭 → 열기(막히면
+> `xattr -cr <앱>`), Windows는 SmartScreen → 추가 정보 → 실행, mac/Linux 단일
+> 바이너리는 `chmod +x` 필요할 수 있음.
+
+직접 빌드:
 ```bash
-go build -o sojeongcompose .          # 현재 OS용
-# 크로스컴파일 예) GOOS=windows GOARCH=amd64 go build -o sojeongcompose.exe .
-#                 GOOS=darwin  GOARCH=arm64 go build -o sojeongcompose .
-#                 GOOS=linux   GOARCH=arm64 go build -o sojeongcompose .
+go build -o sojeongcompose .                         # 현재 OS
+GOOS=windows GOARCH=amd64 go build -o sojeongcompose.exe .
+GOOS=darwin  GOARCH=arm64 go build -o sojeongcompose .
+GOOS=linux   GOARCH=arm64 go build -o sojeongcompose .
 ```
-실행 후 안내되는 `http://127.0.0.1:PORT` 가 열린다. 창을 닫으면 종료.
 
-> 배포 바이너리는 **서명이 없어** 첫 실행 시 OS 경고가 뜬다: macOS는 우클릭 → 열기
-> (또는 `xattr -d com.apple.quarantine <파일>`), Windows는 SmartScreen → 추가 정보
-> → 실행. mac/Linux는 `chmod +x <파일>` 필요할 수 있음.
+## 사용
 
-### B. HTML 단독 (`index.html` 더블클릭)
-서버 없이 브라우저로 바로 열림. 단, 브라우저가 API를 직접 호출하므로 일부 공급자는
-**CORS**로 막을 수 있음(그럴 땐 A를 쓰거나 CORS 허용 공급자/로컬 모델).
-
----
-
-## 사용 (공통)
-
-1. 실행(A) 또는 `index.html` 열기(B).
-2. **AI 설정**: Base URL·모델·키 입력
-   (예: GLM `https://api.z.ai/api/paas/v4`, 모델 `glm-4.6`, 본인 키).
-   키는 그 브라우저(localStorage)에만 저장된다.
-3. **곡 정보**(악기·조·장단) 입력 + **MusicXML(.xml)** 드래그&드롭.
-   - Finale: **파일 → MusicXML 내보내기**(압축 안 함) → 생긴 `.xml`을 넣기.
-   - ⚠ Finale 전용 **`.musx`는 직접 못 읽음** → 위처럼 MusicXML로 내보내야 함.
-4. **질문** 적고 "아이디어 받기" (예: "이 도입부 다음 8마디, 계면조로 해금 음역 안에서").
-
----
-
-## 특징
-
-- **작곡 지식 내장(자동 적용)**: 펀더멘탈·화성·선율·형식·리듬·국악(+민속) 레퍼런스
-  26종을 HTML에 내장해, 질문에 맞는 것만 자동 선별·적용한다(붙여넣을 필요 없음).
-  출처 [SJY051/music-composition](https://github.com/SJY051/music-composition)
-  (CC BY 4.0, 프롬프트에 출처 자동 포함).
-- **악보 맥락 인식**: MusicXML을 브라우저 내장 파서로 읽어 파트·음·조·박자 요약을
-  AI에 함께 전달 → 곡에 맞는 답.
-- **공급자 독립**: OpenAI 호환이면 무엇이든(GLM·OpenAI·DeepSeek·Ollama 등).
+1. **⚙ AI 설정**(접이식): Base URL·모델·키 (예: GLM `https://api.z.ai/api/paas/v4`,
+   `glm-4.6`). 한 번 넣으면 저장됨. **공급자가 도구(tool) 호출을 지원해야 함**(GLM·OpenAI 등).
+2. **곡 정보**(악기·조·장단) + **MusicXML**(`.xml`/`.mxl`) 드래그&드롭.
+   - Finale: **파일 → MusicXML 내보내기** → `.xml` 또는 `.mxl`. (`.musx`는 전용 포맷이라 불가)
+3. **질문** → "아이디어 받기". 결과 하단에 **AI가 읽은 참고 문서**가 표시된다.
 
 ## 메모 / 한계
 
-- 브라우저가 API를 **직접 호출**한다. 일부 공급자는 **CORS**로 막으므로, 그럴 땐
-  CORS 허용 공급자(OpenRouter 등)나 **로컬 모델(Ollama)** 을 쓴다.
-- 내장 지식 때문에 `index.html`이 ~410KB. 요청당 토큰은 선별·상한으로 관리(저가 모델 권장).
-- MusicXML은 `.xml`과 **압축 `.mxl` 모두 지원**(브라우저 내장 해제, 외부 의존성 0). MIDI(.mid)는 아직 미지원.
+- **도구 호출 미지원 공급자**에선 동작하지 않음(대부분의 OpenAI 호환 API는 지원).
+- 멀티턴(도구 호출 1~2회)이라 응답이 단일 호출보다 **조금 느림**.
+- MusicXML `.xml`/`.mxl` 지원(브라우저 내장 해제). **MIDI(.mid)는 미지원**, `.musx`도 불가.
+- `index.html` 만 브라우저로 직접 열면 AI 호출은 안 됨(백엔드 필요) — **앱으로 실행**.
 
 ## 라이선스 / 출처
 
-- 내장 작곡 지식: [SJY051/music-composition](https://github.com/SJY051/music-composition) — **CC BY 4.0**.
+- `skill/` 의 작곡 지식: [SJY051/music-composition](https://github.com/SJY051/music-composition)
+  — **CC BY 4.0**. 에이전트가 읽도록 내장하며 출처를 표기한다(`skill/NOTICE.md`).
