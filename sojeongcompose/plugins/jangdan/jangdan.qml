@@ -4,8 +4,9 @@
 //  선택한 타악기 보표(장구 파트)에 굿거리·자진모리·세마치·중모리 등
 //  장단 패턴을 지정한 마디 수만큼 삽입한다.
 //
-//  설치: 이 폴더(jangdan)를 MuseScore Plugins 폴더로 복사 후, MuseScore 에서
-//        Plugins → sojeongcompose → 장단 입력 으로 실행.
+//  설치: 이 폴더(jangdan)를 MuseScore Plugins 폴더로 복사 → Home → Plugins 에서
+//        활성화 후, Plugins → Composing/arranging tools → "장단 입력 (sojeongcompose)"
+//        로 실행. (categoryCode 가 Composing/arranging tools 하위 메뉴에 등록)
 //
 //  ⚠ 장구 드럼셋 음고 매핑은 patterns.js 의 STROKE 값과 포크의 Drumset 정의를
 //    일치시켜야 한다(docs/jangdan.md). 본 파일은 동작하는 스캐폴드이며,
@@ -20,7 +21,9 @@ MuseScore {
   version: "0.1.0"
   description: "선택한 장구 보표에 장단 패턴을 삽입합니다."
   title: "장단 입력 (sojeongcompose)"
-  categoryByLabel: true
+  // MuseScore 4.4+ 규격: menuPath 대신 title + categoryCode + pluginType 사용.
+  // categoryCode 유효값: composing-arranging-tools / color-notes / playback / lyrics
+  categoryCode: "composing-arranging-tools"
   pluginType: "dialog"
   width: 320
   height: 200

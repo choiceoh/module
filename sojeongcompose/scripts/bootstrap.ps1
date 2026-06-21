@@ -8,7 +8,8 @@
   사용:  pwsh ./scripts/bootstrap.ps1 [-UpstreamTag v4.4.4] [-WorkDir .\.work]
 #>
 param(
-  [string]$UpstreamTag = "v4.4.4",
+  # Linux VST3(조선 시리즈 재생)은 MuseScore 4.6.0+ 에서만 지원 → ≥4.6 권장.
+  [string]$UpstreamTag = "v4.7.3",
   [string]$WorkDir = ""
 )
 
@@ -36,14 +37,22 @@ if (-not (Test-Path (Join-Path $SrcDir ".git"))) {
   git -C $SrcDir fetch --tags origin
 }
 
-Write-Host "==> $UpstreamTag 체크아웃 + $Branch 브랜치 생성"
-git -C $SrcDir rev-parse -q --verify "refs/tags/$UpstreamTag" 2>$null
+# 재실행 시 fork 브랜치를 리셋하지 않는다(커밋 보존).
+git -C $SrcDir rev-parse -q --verify "refs/heads/$Branch" 2>$null | Out-Null
 if ($LASTEXITCODE -eq 0) {
-  git -C $SrcDir checkout -B $Branch "tags/$UpstreamTag"
+  Write-Host "==> 기존 $Branch 브랜치로 체크아웃(리셋 안 함, 커밋 보존)"
+  Write-Host "    ! 업스트림 태그로 새로 시작하려면 먼저: git -C $SrcDir branch -D $Branch"
+  git -C $SrcDir checkout $Branch
 } else {
-  Write-Host "    ! 태그 $UpstreamTag 를 찾지 못함 → 기본 브랜치 사용."
-  Write-Host "      -UpstreamTag 를 실제 릴리스 태그로 지정하세요."
-  git -C $SrcDir checkout -B $Branch
+  git -C $SrcDir rev-parse -q --verify "refs/tags/$UpstreamTag" 2>$null | Out-Null
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "==> $UpstreamTag 에서 $Branch 브랜치 새로 생성"
+    git -C $SrcDir checkout -b $Branch "tags/$UpstreamTag"
+  } else {
+    Write-Host "    ! 태그 $UpstreamTag 를 찾지 못함 → 기본 브랜치에서 $Branch 생성."
+    Write-Host "      -UpstreamTag 를 실제 릴리스 태그로 지정하세요."
+    git -C $SrcDir checkout -b $Branch
+  }
 }
 
 Write-Host "==> overlay\ 적용"

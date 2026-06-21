@@ -16,7 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 UPSTREAM_URL="https://github.com/musescore/MuseScore.git"
-UPSTREAM_TAG="${UPSTREAM_TAG:-v4.4.4}"
+# Linux VST3(조선 시리즈 재생)은 MuseScore 4.6.0+ 에서만 지원되므로 ≥4.6 권장.
+UPSTREAM_TAG="${UPSTREAM_TAG:-v4.7.3}"
 WORK_DIR="${WORK_DIR:-${ROOT_DIR}/.work}"
 SRC_DIR="${WORK_DIR}/MuseScore"
 BRANCH="sojeongcompose"
@@ -35,13 +36,19 @@ else
   git -C "${SRC_DIR}" fetch --tags origin
 fi
 
-echo "==> ${UPSTREAM_TAG} 체크아웃 + ${BRANCH} 브랜치 생성"
-if git -C "${SRC_DIR}" rev-parse -q --verify "refs/tags/${UPSTREAM_TAG}" >/dev/null; then
-  git -C "${SRC_DIR}" checkout -B "${BRANCH}" "tags/${UPSTREAM_TAG}"
+# 재실행 시 fork 브랜치를 리셋하지 않는다(커밋 보존).
+if git -C "${SRC_DIR}" rev-parse -q --verify "refs/heads/${BRANCH}" >/dev/null; then
+  echo "==> 기존 ${BRANCH} 브랜치로 체크아웃(리셋 안 함, 커밋 보존)"
+  echo "    ⚠ 업스트림 태그로 새로 시작하려면 먼저 브랜치를 삭제하세요:"
+  echo "      git -C ${SRC_DIR} branch -D ${BRANCH}"
+  git -C "${SRC_DIR}" checkout "${BRANCH}"
+elif git -C "${SRC_DIR}" rev-parse -q --verify "refs/tags/${UPSTREAM_TAG}" >/dev/null; then
+  echo "==> ${UPSTREAM_TAG} 에서 ${BRANCH} 브랜치 새로 생성"
+  git -C "${SRC_DIR}" checkout -b "${BRANCH}" "tags/${UPSTREAM_TAG}"
 else
-  echo "    ⚠ 태그 ${UPSTREAM_TAG} 를 찾지 못함 → 기본 브랜치 사용."
+  echo "    ⚠ 태그 ${UPSTREAM_TAG} 를 찾지 못함 → 기본 브랜치에서 ${BRANCH} 생성."
   echo "      UPSTREAM_TAG 를 실제 릴리스 태그로 지정하세요. (git -C ${SRC_DIR} tag 로 확인)"
-  git -C "${SRC_DIR}" checkout -B "${BRANCH}"
+  git -C "${SRC_DIR}" checkout -b "${BRANCH}"
 fi
 
 echo "==> overlay/ 적용"

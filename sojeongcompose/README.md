@@ -65,13 +65,24 @@ sojeongcompose/
 cd sojeongcompose
 ./scripts/bootstrap.sh            # Windows: pwsh ./scripts/bootstrap.ps1
 
-# 2) 빌드 (예: Linux)
+# 2) 빌드 (예: Linux). ※ Linux VST3(조선 시리즈) 재생은 MuseScore 4.6.0+ 필요
 cd .work/MuseScore
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 
-# 3) 실행 → 새 악보 만들기에서 "국악기(Korean Traditional)" 그룹 확인
+# 3) 국악기 그룹 노출시키기 (아래 둘 중 하나, 필수 단계)
+#  (a) 권장: 빌드/설치한 MuseScore Preferences → Score → "Instrument list 2"
+#      에 overlay 의 sojeong_gukak.xml 경로를 지정 (XML 수술 불필요)
+#  또는
+#  (b) overlay 의 <InstrumentGroup> 를 업스트림 share/instruments/instruments.xml
+#      에 병합한 뒤 빌드
+
+# 4) 실행 → 새 악보 만들기에서 "국악기(Korean Traditional)" 그룹 확인
 ```
+
+> ⚠ `bootstrap` 은 `sojeong_gukak.xml` 을 업스트림 트리에 복사할 뿐, 기본 악기
+> 목록(`instruments.xml`)에 자동 병합하지는 않는다. 위 3단계(a/b)를 거쳐야 새 악보
+> 마법사에 국악기 그룹이 노출된다.
 
 `bootstrap` 스크립트가 하는 일:
 1. `musescore/MuseScore` 를 `.work/MuseScore` 로 클론(이미 있으면 fetch).
