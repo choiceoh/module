@@ -77,9 +77,7 @@ MuseScore {
         var st = chosen.strokes[i];
         cursor.setDuration(1, st.dur); // 1/dur 음표(예: 1/8 = 8분음표)
         if (st.type === "rest") {
-          // addRest 가 없는 버전 호환: 음표를 넣지 않고 음가만큼 전진
-          cursor.addNote(Jangdan.STROKE.deok); // placeholder
-          // TODO(device): 쉼표 입력 API 로 교체 (버전별 cursor.addRest 확인)
+          cursor.addRest(); // setDuration 으로 정한 음가만큼 쉼표 삽입
         } else {
           cursor.addNote(Jangdan.STROKE[st.type]);
         }

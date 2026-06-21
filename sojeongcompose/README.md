@@ -56,7 +56,9 @@ sojeongcompose/
 
 ## 빠른 시작 (포크 부트스트랩)
 
-전제: `git`, `cmake`(≥3.24), `Qt 6.2+`, C++ 컴파일러. 자세한 빌드 의존성은
+전제(기본 태그 `v4.7.3` 기준): `git`, **`Qt 6.8+`**, **`cmake`**(Linux ≥3.24,
+**macOS ≥3.26**), C++ 컴파일러. 더 낮은 Qt/CMake 를 쓰려면 `UPSTREAM_TAG` 를 해당
+버전을 지원하는 옛 태그로 낮춘다(단, Linux VST3 는 4.6.0+ 필요). 자세한 빌드 의존성은
 업스트림 [MuseScore 빌드 문서](https://github.com/musescore/MuseScore#building-musescore)
 참고.
 

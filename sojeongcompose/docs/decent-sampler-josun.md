@@ -28,17 +28,17 @@ sojeongcompose(MuseScore 4 포크)는 **VST3 호스팅**으로 국악기 파트�
 
 | sojeongcompose 파트(id) | 조선 시리즈에서 로드할 악기 |
 |---|---|
-| `gayageum-sanjo` / `gayageum-jeongak` | 가야금 |
-| `geomungo` | 거문고 |
-| `haegeum` | 해금 |
-| `ajaeng` | 아쟁 |
-| `daegeum` | 대금 |
-| `sogeum` | 소금/당적 계열 |
-| `piri` | 피리 |
-| `danso` | 단소 |
-| `taepyeongso` | 태평소 |
-| `yanggeum` | 양금 |
-| `janggu` / `buk` / `kkwaenggwari` / `jing` | 타악(장구/북/꽹과리/징) |
+| `sojeong-gayageum-sanjo` / `sojeong-gayageum-jeongak` | 가야금 |
+| `sojeong-geomungo` | 거문고 |
+| `sojeong-haegeum` | 해금 |
+| `sojeong-ajaeng` | 아쟁 |
+| `sojeong-daegeum` | 대금 |
+| `sojeong-sogeum` | 소금/당적 계열 |
+| `sojeong-piri` | 피리 |
+| `sojeong-danso` | 단소 |
+| `sojeong-taepyeongso` | 태평소 |
+| `sojeong-yanggeum` | 양금 |
+| `sojeong-janggu` / `sojeong-buk` / `sojeong-kkwaenggwari` / `sojeong-jing` | 타악(장구/북/꽹과리/징) |
 
 ## 4. 아티큘레이션·시김새(후속)
 

@@ -16,9 +16,21 @@
 | 기덕 (gideok) | 겹채/꾸밈 | 채편 겹타 | 40 |
 | 더러러러 (deoreoreo) | 굴림 | 채편 롤 | 42 |
 
-> 확정 절차: 포크 `share/instruments` 의 장구 항목에 `<useDrumset>1</useDrumset>`
-> 과 `<Drumset>`(각 음고의 name/노트헤드/스템 방향)을 정의하고, 그 음고를
-> `patterns.js` 의 `STROKE` 와 일치시킨다.
+> 확정 절차: 포크 `share/instruments` 의 장구 항목에 `<drumset>1</drumset>` 플래그와
+> 각 타점을 `<Drum pitch="N">`(name/노트헤드/스템 방향/voice 등) 항목으로 정의하고,
+> 그 `pitch` 값을 `patterns.js` 의 `STROKE` 와 일치시킨다. 예:
+>
+> ```xml
+> <Instrument id="sojeong-janggu">
+>   ...
+>   <drumset>1</drumset>
+>   <Drum pitch="36"><head>normal</head><line>4</line><voice>0</voice>
+>     <name>덩</name><stem>1</stem></Drum>
+>   <Drum pitch="35"><name>쿵</name>...</Drum>
+>   <Drum pitch="38"><name>덕</name>...</Drum>
+> </Instrument>
+> ```
+> (`<useDrumset>`/`<Drumset>` 같은 태그는 MuseScore 가 인식하지 않는다.)
 
 ## 수록 장단
 
