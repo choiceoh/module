@@ -14,9 +14,11 @@
 
 | 요청 유형 | 문서 경로(그대로 사용) |
 |---|---|
-| **창작국악 작곡(선법 화성화·시김새·장단·국악관현악·실전 처방)** | `references/genres/korean-creative-art-music.md` ★먼저 |
+| **창작국악 작곡(선법 화성화·시김새·장단·국악관현악·실전 처방)** | `references/genres/korean-creative-art-music.md` ★먼저(허브) → 상세는 `references/genres/creative-art-music/`(modal-harmony·sigimsae-texture·jangdan-as-form·gugak-orchestration·notation-for-players·diagnostics·lineage-and-aesthetics) |
 | **국악기 주법·특성·편성(가야금/거문고/해금/대금/장구 등)** | `references/instrument-idiom/korean/00-index.md` ★먼저 → 해당 악기 파일 |
 | **국악 지역별 어법(토리: 경기·메나리·육자배기·수심가·제주)·향토 색채** | `references/genres/korean-regional-toris.md` |
+| **산조 유파(전승 계보)별 어법(가야금·거문고·대금·해금·아쟁산조)** | `references/genres/sanjo/00-index.md` ★먼저 → 악기 파일 |
+| **민요 채보 예시(토리별 실제 곡 분석: 아리랑·도라지·진도·수심가·오돌또기)** | `references/genres/minyo/00-index.md` ★먼저 → 곡 파일 |
 | 전통 국악 토대(정악·민속·산조·시나위·시김새) | `references/genres/korean-traditional.md` |
 | 민속·전통 일반 / 월드 | `references/genres/folk-roots-and-traditions.md`, `references/genres/folk-and-world.md` |
 | 서양 예술음악 시대 양식(바로크~현대) | `references/genres/classical-periods.md` |

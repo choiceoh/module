@@ -230,9 +230,14 @@
 - ✗ 떠는음·꺾는음을 화음 구성음으로 고정 — 유동하는 표현음이다(화음은 골격음에).
 - ✗ 제주토리를 육지 토리로 동화 — 독자 음계를 살려라.
 
+> **토리별 실제 곡 채보·분석**(아리랑·도라지타령·정선아리랑·진도아리랑·수심가·
+> 오돌또기)은 개별 페이지로: `minyo/00-index.md`. 기악 즉흥(산조) 유파별 어법은
+> `sanjo/00-index.md`.
+
 ### 교차참조
 선법(평·계면조)·시김새 `korean-traditional.md` · 화성화·텍스처
-`korean-creative-art-music.md` · 성악 토리 발성
+`korean-creative-art-music.md` · **민요 채보 예시** `minyo/00-index.md` · **산조 유파**
+`sanjo/00-index.md` · 성악 토리 발성
 `../instrument-idiom/korean/vocals.md` · 장단·풍물
 `../instrument-idiom/korean/janggu.md` · 비평균율/미분음
 `../fundamentals/pitch-intervals-scales.md`
