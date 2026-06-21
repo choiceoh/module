@@ -50,7 +50,7 @@
       <div><label>Base URL</label><input id="baseUrl" type="text" placeholder="https://api.z.ai/api/paas/v4"></div>
       <div><label>모델</label><input id="model" type="text" placeholder="glm-4.6 / gpt-4o-mini …"></div>
     </div>
-    <label>API 키 <span class="muted">(이 브라우저에만 저장)</span></label>
+    <label>API 키 <span class="muted">(이 PC의 앱 설정 파일에 저장 — 한 번 입력하면 유지, 외부 공유 안 됨)</span></label>
     <input id="apiKey" type="password" placeholder="sk-...">
     <p class="muted">예) GLM: Base URL <code>https://api.z.ai/api/paas/v4</code>, 모델 <code>glm-4.6</code>. 정확한 값은 공급자 문서 확인.</p>
   </details>
@@ -93,14 +93,23 @@ const $ = id => document.getElementById(id);
 const STEP_SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 const SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
-// ---- 설정 저장/복원 ----
+// ---- 설정 저장/복원 (앱 설정 파일 우선 + localStorage 백업) ----
+// 키·엔드포인트는 백엔드가 사용자 설정 파일(config.json)에 저장하므로
+// 브라우저·포트·빌드가 바뀌어도 유지된다.
 const CFG_KEYS = ["baseUrl","model","apiKey"];
-function loadCfg(){ try{ const c=JSON.parse(localStorage.getItem("sjc-ai")||"{}");
-  CFG_KEYS.forEach(k=>{ if(c[k]!=null) $(k).value=c[k]; }); }catch(e){} }
-function saveCfg(){ const c={}; CFG_KEYS.forEach(k=>c[k]=$(k).value); localStorage.setItem("sjc-ai",JSON.stringify(c)); }
+function applyCfg(c){ if(!c) return; CFG_KEYS.forEach(k=>{ if(c[k]) $(k).value=c[k]; }); }
+async function loadCfg(){
+  try{ applyCfg(JSON.parse(localStorage.getItem("sjc-ai")||"{}")); }catch(e){}
+  try{ const r=await fetch("/api/config"); if(r.ok) applyCfg(await r.json()); }catch(e){}
+  // 키가 아직 없으면(첫 실행) 설정을 펼쳐 안내, 이미 있으면 접어둠
+  if(!$("apiKey").value){ const s=$("settings"); if(s) s.open=true; }
+}
+function saveCfg(){
+  const c={}; CFG_KEYS.forEach(k=>c[k]=$(k).value);
+  try{ localStorage.setItem("sjc-ai",JSON.stringify(c)); }catch(e){}
+  fetch("/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(c)}).catch(()=>{});
+}
 loadCfg();
-// 키가 아직 없으면(첫 실행) 설정을 펼쳐 안내, 이미 있으면 접어둠
-if(!$("apiKey").value){ const s=document.getElementById("settings"); if(s) s.open=true; }
 
 // ---- 파일 처리 ----
 let parsedSummary = "";

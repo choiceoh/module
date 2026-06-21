@@ -16,11 +16,14 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,7 +36,7 @@ var abcjsJS []byte
 //go:embed all:skill
 var skillFS embed.FS
 
-var httpClient = &http.Client{Timeout: 180 * time.Second}
+var httpClient = &http.Client{Timeout: 600 * time.Second}
 
 const maxIters = 8
 
@@ -63,17 +66,94 @@ func main() {
 		w.Header().Set("Cache-Control", "max-age=86400")
 		w.Write(abcjsJS)
 	})
+	mux.HandleFunc("/api/config", handleConfig)
 	mux.HandleFunc("/api/chat", handleChat)
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		log.Fatalf("포트 열기 실패: %v", err)
-	}
+	// 고정 포트로 띄운다 → 브라우저 origin(host:port)이 매 실행·매 빌드마다 같아져
+	// localStorage에 저장한 설정(Base URL·모델·API 키)이 그대로 유지된다.
+	// 포트가 이미 점유돼 있으면 후보를 차례로 시도하고, 모두 막히면 임의 포트로 폴백.
+	ln := listen()
 	url := "http://" + ln.Addr().String()
 	fmt.Println("sojeongcompose 실행 중 →", url)
+	if _, p, _ := net.SplitHostPort(ln.Addr().String()); p != "17324" {
+		fmt.Println("⚠ 기본 포트(17324)가 사용 중이라 다른 포트로 실행됨 — 이 경우 저장된 설정이 안 보일 수 있습니다.")
+	}
 	fmt.Println("(이 창을 닫으면 종료됩니다)")
 	go func() { time.Sleep(300 * time.Millisecond); openBrowser(url) }()
 	log.Fatal(http.Serve(ln, mux))
+}
+
+// listen 은 고정 포트(설정 유지를 위해)를 우선 시도하고, 점유돼 있으면 후보를
+// 차례로, 모두 막히면 임의 포트로 연다.
+func listen() net.Listener {
+	for _, p := range []string{"17324", "27324", "37324"} {
+		if l, err := net.Listen("tcp", "127.0.0.1:"+p); err == nil {
+			return l
+		}
+	}
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		log.Fatalf("포트 열기 실패: %v", err)
+	}
+	return l
+}
+
+// ---- 설정(Base URL·모델·API 키) 앱 설정 파일 저장 ----
+// 사용자 설정 디렉터리의 sojeongcompose/config.json 에 저장한다(파일 권한 0600).
+// 브라우저 localStorage 와 무관하게 유지되어, 어떤 빌드/브라우저에서도 키가 보존된다.
+type appConfig struct {
+	BaseURL string `json:"baseUrl"`
+	Model   string `json:"model"`
+	APIKey  string `json:"apiKey"`
+}
+
+var cfgMu sync.Mutex
+
+func configPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil || dir == "" {
+		if h, e := os.UserHomeDir(); e == nil {
+			dir = h
+		} else {
+			dir = "."
+		}
+	}
+	return filepath.Join(dir, "sojeongcompose", "config.json")
+}
+
+func handleConfig(w http.ResponseWriter, r *http.Request) {
+	p := configPath()
+	switch r.Method {
+	case http.MethodGet:
+		cfgMu.Lock()
+		b, err := os.ReadFile(p)
+		cfgMu.Unlock()
+		var c appConfig
+		if err == nil {
+			json.Unmarshal(b, &c)
+		}
+		writeJSON(w, c)
+	case http.MethodPost:
+		var c appConfig
+		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+			writeJSON(w, map[string]any{"error": "bad request: " + err.Error()})
+			return
+		}
+		cfgMu.Lock()
+		defer cfgMu.Unlock()
+		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		b, _ := json.MarshalIndent(c, "", "  ")
+		if err := os.WriteFile(p, b, 0600); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "path": p})
+	default:
+		http.Error(w, "GET/POST only", 405)
+	}
 }
 
 // 임베드된 스킬 문서 목록(skill/ 기준 상대경로, .md만)
@@ -218,7 +298,14 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		})
 		respBytes, status, err := callProvider(req, body)
 		if err != nil {
-			writeJSON(w, map[string]any{"error": "공급자 호출 실패: " + err.Error()})
+			msg := err.Error()
+			hint := ""
+			if strings.Contains(msg, "deadline") || strings.Contains(strings.ToLower(msg), "timeout") {
+				hint = "\n\n응답이 너무 느려 시간이 초과됐습니다. ① 잠시 후 다시 시도, ② 질문을 더 좁게, " +
+					"③ Base URL 엔드포인트가 맞는지 확인하세요(예: https://api.z.ai/api/paas/v4). " +
+					"공급자가 혼잡하거나 모델이 매우 길게 답하는 경우 발생할 수 있습니다."
+			}
+			writeJSON(w, map[string]any{"error": "공급자 호출 실패: " + msg + hint})
 			return
 		}
 		var pr provResp

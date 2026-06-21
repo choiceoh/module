@@ -46,10 +46,11 @@
 
 ---
 
-### 계보·미학 (참고 맥락) → `creative-art-music/lineage-and-aesthetics.md`
-창작국악 계보(김기수 「황화만년지곡」1939 → 황병기 「숲」1963 → 이성천·이해식·전인평·
-박범훈 등 대학 세대), '융합 vs 신작국악' 쟁점, 윤혜진의 작업(**해당될 때만** 참고),
-인용 vs 변형·발전 원칙은 상세 문서에서.
+### 계보·미학·작곡기법 (참고 맥락)
+- 계보·미학(김기수 1939 → 황병기 1963 → 대학 세대), '융합 vs 신작국악', 윤혜진(해당될
+  때만): `creative-art-music/lineage-and-aesthetics.md`.
+- **대표 작곡가의 구체 작곡기법**(이성천 21현 신주법·점진적 발전, 이해식 분절법·하이브리드
+  리듬·다중주법, 전인평 만중삭·술대 신주법·거문고 병창·범아시아): `creative-art-music/composer-techniques.md`.
 
 ### 교차참조
 상세: `creative-art-music/`(modal-harmony·sigimsae-texture·jangdan-as-form·
