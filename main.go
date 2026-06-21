@@ -42,13 +42,21 @@ const maxIters = 8
 
 // 프런트엔드 → 백엔드 요청(원시 입력; 메시지/지식 구성은 백엔드가 함)
 type uiReq struct {
-	BaseURL  string `json:"baseUrl"`
-	APIKey   string `json:"apiKey"`
-	Model    string `json:"model"`
-	Intent   string `json:"intent"` // 곡 특성·나타내려는 악상(작곡가 서술)
-	Score    string `json:"score"`  // MusicXML 요약(악기·조표·박자·음 나열)
-	Question string `json:"question"`
-	Extra    string `json:"extra"`
+	BaseURL     string    `json:"baseUrl"`
+	APIKey      string    `json:"apiKey"`
+	Model       string    `json:"model"`
+	Intent      string    `json:"intent"`      // 곡 특성·배경(악상) — 참고 맥락
+	Constraints string    `json:"constraints"` // 반드시 지켜야 할 제약 — 위반 금지
+	Score       string    `json:"score"`       // MusicXML 요약(악기·조표·박자·음 나열)
+	Question    string    `json:"question"`
+	Extra       string    `json:"extra"`
+	History     []histMsg `json:"history"` // 이전 답변·피드백(이어서 다듬기)
+}
+
+// 이전 대화 한 턴(역할은 user/assistant)
+type histMsg struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 func main() {
@@ -187,6 +195,12 @@ func systemPrompt() string {
 	b.WriteString("평조/계면조, 시김새: 요성·퇴성·추성 등)을 살려 작곡합니다.\n")
 	b.WriteString("규칙: 빈말·과장된 칭찬 금지. 음 이름(C4 등)·화성 진행·도약/순차·장단 정렬·악기 음역·\n")
 	b.WriteString("시김새 적용 지점을 구체적으로. 모르면 솔직히. 한국어로 답한다.\n")
+	b.WriteString("제약 규칙: 사용자가 '반드시 지켜야 할 제약'을 제시하면 어떤 경우에도 위반하지 마라.\n")
+	b.WriteString("(예: 특정 악기 음역, 조/선법 유지, 장단 고정, 마디 수 등) 제안·악보가 그 제약을 모두\n")
+	b.WriteString("만족하는지 스스로 점검하라. 제약과 충돌이 불가피하면 먼저 그 사실과 이유를 밝히고\n")
+	b.WriteString("제약을 지키는 대안을 제시한다. '곡 특성·배경(악상)'은 참고 맥락이니 융통성 있게 쓴다.\n")
+	b.WriteString("피드백 규칙: 이전 답변에 대한 사용자 피드백(수정 요청)이 오면, 그 피드백을 최우선으로\n")
+	b.WriteString("반영해 직전 답을 수정·발전시켜라(처음부터 다시 쓰지 말고 이어서 다듬되, 제약은 계속 준수).\n")
 	b.WriteString("편성 규칙: 악보 요약에 있는 파트(악기)만 다뤄라. 파트가 하나면 솔로곡이다 —\n")
 	b.WriteString("임의로 '가야금1·가야금2'처럼 성부를 늘리지 마라(편성 확장은 사용자가 요청할 때만).\n")
 	b.WriteString("악기 규칙: 국악기 주법·특성·편성을 말하기 전에 반드시\n")
@@ -219,8 +233,11 @@ func systemPrompt() string {
 
 func userPrompt(r uiReq) string {
 	var p []string
+	if r.Constraints != "" {
+		p = append(p, "[반드시 지켜야 할 제약 — 어떤 경우에도 위반 금지]\n"+r.Constraints)
+	}
 	if r.Intent != "" {
-		p = append(p, "곡 특성·나타내려는 악상(작곡가 서술): "+r.Intent)
+		p = append(p, "곡 특성·배경(악상 — 참고 맥락, 융통성 있게 활용): "+r.Intent)
 	}
 	if r.Score != "" {
 		p = append(p, "악보(MusicXML 요약 — 악기·조표·박자는 여기서 읽어라):\n"+r.Score)
@@ -288,6 +305,12 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	messages := []json.RawMessage{
 		raw(map[string]any{"role": "system", "content": systemPrompt()}),
 		raw(map[string]any{"role": "user", "content": userPrompt(req)}),
+	}
+	// 이전 대화(직전 답변·사용자 피드백)를 이어 붙여 수정·발전을 가능하게 한다.
+	for _, m := range req.History {
+		if (m.Role == "user" || m.Role == "assistant") && m.Content != "" {
+			messages = append(messages, raw(map[string]any{"role": m.Role, "content": m.Content}))
+		}
 	}
 	var readDocs []string
 

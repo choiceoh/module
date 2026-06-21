@@ -62,8 +62,10 @@
       <span class="muted">⚠ Finale의 <b>.musx</b>는 안 됨 → <b>파일 → MusicXML 내보내기</b>로 <b>.xml</b> 또는 <b>.mxl</b>(압축) 만들어 넣기</span></div>
     <input id="file" type="file" accept=".xml,.musicxml,.mxl" style="display:none">
     <div id="fileInfo" class="muted"></div>
-    <label style="margin-top:10px">곡 특성·악상 <span class="muted">(분위기·의도, 그리고 악보에서 안 읽히는 조·장단·시김새 — 선택)</span></label>
-    <textarea id="intent" rows="3" placeholder="예) 계면조의 애절한 정서, 중모리 장단. 도입은 정적이다가 후반으로 갈수록 격해지는 흐름. 해금의 농현(요성)을 살리고 싶음. — 평조/계면조나 장단은 악보(조표·박자표)만으론 알 수 없으니 여기 적어주세요. 악기·음표는 파일에서 자동으로 읽습니다."></textarea>
+    <label style="margin-top:10px">곡 특성·배경(악상) <span class="muted">(분위기·의도 등 참고 맥락 — AI가 융통성 있게 활용)</span></label>
+    <textarea id="intent" rows="3" placeholder="예) 계면조의 애절한 정서. 도입은 정적이다가 후반으로 갈수록 격해지는 흐름. 해금의 농현(요성)을 살리고 싶음. (조·장단도 악보로 안 읽히면 여기 적어주세요.)"></textarea>
+    <label style="margin-top:10px">반드시 지켜야 할 것 <span class="muted">(제약 — AI가 절대 위반하지 않음)</span></label>
+    <textarea id="constraints" rows="2" placeholder="예) 해금 음역(중~고음) 안에서. 계면조 유지. 장단은 중모리 고정. 8마디. 평균율 밖 음 금지."></textarea>
   </fieldset>
 
   <fieldset>
@@ -80,6 +82,12 @@
   <fieldset>
     <legend>3. 결과</legend>
     <div id="out" class="muted">여기에 AI의 작곡 아이디어가 표시됩니다.</div>
+    <div id="fb" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <label>이 결과에 피드백·수정 요청 <span class="muted">(대화를 이어서 다듬습니다 — 제약은 계속 지켜짐)</span></label>
+      <textarea id="feedback" rows="2" placeholder="예) 2번 안이 좋은데 해금 음역을 벗어났어 — 그 안을 유지하되 음역 안으로 고쳐줘. / 더 격렬하게. / 종지를 본청으로 마무리. / 농현 지점을 더 구체적으로."></textarea>
+      <div style="margin-top:8px"><button id="refine">피드백 반영해 다시</button>
+        <button id="reset" style="background:#999">새 대화로 시작</button></div>
+    </div>
   </fieldset>
 
   <p class="muted">AI 호출은 앱 백엔드가 대신합니다(브라우저 직접 호출이 아니라 CORS 문제 없음). 키는 본인 PC에만 저장되며 공유하지 마세요. 공급자가 <b>도구(tool) 호출</b>을 지원해야 합니다(GLM·OpenAI 등).</p>
@@ -246,31 +254,42 @@ function renderResponse(content){
   if(last<content.length) out.appendChild(proseNode(content.slice(last)));
 }
 
-// ---- API 호출 (백엔드 에이전트 루프) ----
-async function callAI(){
+// ---- API 호출 (백엔드 에이전트 루프; 피드백으로 이어가기 지원) ----
+let history=[];     // [{role:'user'|'assistant', content}] — 직전 답변·피드백 체인
+let lastAnswer="";
+async function runChat(feedback){
   saveCfg();
   const base=$("baseUrl").value.replace(/\/+$/,""), model=$("model").value, key=$("apiKey").value;
-  if(!base||!model||!key){ setStatus("설정(Base URL·모델·키)을 확인하세요.",true); const s=document.getElementById("settings"); if(s)s.open=true; return; }
-  if(location.protocol==="file:"){ $("out").innerHTML='<span class="err">이 기능은 독립 실행파일(앱)에서만 동작합니다.</span><br><span class="muted">sojeongcompose 앱으로 실행하세요(브라우저로 직접 연 파일은 AI 호출 불가).</span>'; setStatus("앱 필요",true); return; }
-  $("go").disabled=true; setStatus("생각 중… (AI가 필요한 작곡 지식 문서를 직접 찾아 읽는 중)");
-  $("out").textContent="";
+  if(!base||!model||!key){ setStatus("설정(Base URL·모델·키)을 확인하세요.",true); const s=$("settings"); if(s)s.open=true; return; }
+  if(location.protocol==="file:"){ $("out").innerHTML='<span class="err">이 기능은 독립 실행파일(앱)에서만 동작합니다.</span><br><span class="muted">sojeongcompose 앱으로 실행하세요.</span>'; setStatus("앱 필요",true); return; }
+  let pushed=0;
+  if(feedback){ history.push({role:"assistant",content:lastAnswer},{role:"user",content:feedback}); pushed=2; }
+  else { history=[]; }   // 새 요청 = 새 대화
+  $("go").disabled=true; $("refine").disabled=true;
+  setStatus(feedback?"피드백 반영 중…":"생각 중… (AI가 필요한 작곡 지식 문서를 직접 찾아 읽는 중)");
+  $("out").className=""; $("out").textContent="";
   try{
     const res=await fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ baseUrl:base, apiKey:key, model,
-        intent:$("intent").value, score:parsedSummary,
-        question:$("question").value, extra:$("extra").value }) });
+        intent:$("intent").value, constraints:$("constraints").value, score:parsedSummary,
+        question:$("question").value, extra:$("extra").value, history }) });
     const data=await res.json();
     if(data.error){ throw new Error(data.error); }
-    renderResponse(data.content||"");
+    lastAnswer=data.content||"";
+    renderResponse(lastAnswer);
     setStatus("완료"+(data.docs&&data.docs.length?(" · 참고문서 "+data.docs.length+"개: "+data.docs.join(", ")):""));
+    $("fb").style.display="block"; $("feedback").value="";
   }catch(e){
+    if(pushed){ history.splice(history.length-pushed, pushed); } // 실패 시 푸시한 턴 롤백
     $("out").innerHTML='<span class="err">오류: '+e.message+'</span>';
     setStatus("실패",true);
-  }finally{ $("go").disabled=false; }
+  }finally{ $("go").disabled=false; $("refine").disabled=false; }
 }
 
 function setStatus(t,err){ const s=$("status"); s.textContent=t; s.className=err?"err":"muted"; }
-$("go").onclick=callAI;
+$("go").onclick=()=>runChat();
+$("refine").onclick=()=>{ const f=$("feedback").value.trim(); if(f) runChat(f); else $("feedback").focus(); };
+$("reset").onclick=()=>{ history=[]; lastAnswer=""; $("fb").style.display="none"; $("out").className="muted"; $("out").textContent="여기에 AI의 작곡 아이디어가 표시됩니다."; setStatus(""); };
 CFG_KEYS.forEach(k=>$(k).addEventListener("change",saveCfg));
 </script>
 </body>
