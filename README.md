@@ -40,14 +40,19 @@ Finale로 작업하던 국악 작곡가가, 오선보 기반 위에서 **국악�
 ├── branding/
 │   └── branding.md                   # 앱 이름/식별자 → sojeongcompose 변경 위치
 ├── plugins/
-│   └── jangdan/                      # 장단 입력 QML 플러그인
-│       ├── jangdan.qml
-│       └── patterns.js               # 굿거리·자진모리·세마치·진양조 … 패턴 정의
+│   ├── jangdan/                      # 장단 입력 QML 플러그인
+│   │   ├── jangdan.qml
+│   │   └── patterns.js               # 굿거리·자진모리·세마치·진양조 … 패턴 정의
+│   └── ai-compose/                   # AI 작곡 보조(OpenAI 호환) QML 플러그인
+│       ├── ai-compose.qml
+│       ├── provider.js               # OpenAI 호환 API 클라이언트(GLM/OpenAI/로컬)
+│       └── prompt.js                 # 국악 제약(음역·장단·조) 프롬프트 빌더
 ├── docs/
 │   ├── decent-sampler-josun.md       # 조선 시리즈(Decent Sampler) VST 연동 가이드
 │   ├── instrument-ranges.md          # 국악기 음역/이조 확정용 레퍼런스
 │   ├── jangdan.md                    # 장단 드럼셋 매핑(덩·쿵·덕·기덕…) 설계
-│   └── finale-to-sojeong.md          # Finale 사용자 적응 치트시트(단축키·워크플로)
+│   ├── finale-to-sojeong.md          # Finale 사용자 적응 치트시트(단축키·워크플로)
+│   └── ai-compose.md                 # AI 작곡 보조 설정·연동(GLM/OpenAI, 스킬 페어링)
 ├── presets/
 │   └── shortcuts/                    # Finale식 단축키 프리셋(finale-like.xml)
 ├── templates/
@@ -125,6 +130,9 @@ cmake --build build -j
   입력("Input by Duration")·Finale식 단축키([`presets/shortcuts/`])로. 국악
   편성 템플릿([`templates/spec.md`])으로 즉시 작곡. 적응 안내
   [`docs/finale-to-sojeong.md`].
+- **M6 — AI 작곡 보조**: OpenAI 호환 API(GLM·OpenAI·로컬) 플러그인으로 자연어
+  작곡 지시·선율 이어쓰기([`plugins/ai-compose`], [`docs/ai-compose.md`]).
+  music-composition 스킬(국악 시김새 심화, CC BY 4.0)과 페어링해 품질 강화.
 - **M5 (확장)**: 율명 표기 옵션, 시김새(농현 등) 입력/재생 표현, 정간보 뷰.
 
 ---
