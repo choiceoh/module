@@ -65,15 +65,33 @@ func main() {
 	})
 	mux.HandleFunc("/api/chat", handleChat)
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		log.Fatalf("포트 열기 실패: %v", err)
-	}
+	// 고정 포트로 띄운다 → 브라우저 origin(host:port)이 매 실행·매 빌드마다 같아져
+	// localStorage에 저장한 설정(Base URL·모델·API 키)이 그대로 유지된다.
+	// 포트가 이미 점유돼 있으면 후보를 차례로 시도하고, 모두 막히면 임의 포트로 폴백.
+	ln := listen()
 	url := "http://" + ln.Addr().String()
 	fmt.Println("sojeongcompose 실행 중 →", url)
+	if _, p, _ := net.SplitHostPort(ln.Addr().String()); p != "17324" {
+		fmt.Println("⚠ 기본 포트(17324)가 사용 중이라 다른 포트로 실행됨 — 이 경우 저장된 설정이 안 보일 수 있습니다.")
+	}
 	fmt.Println("(이 창을 닫으면 종료됩니다)")
 	go func() { time.Sleep(300 * time.Millisecond); openBrowser(url) }()
 	log.Fatal(http.Serve(ln, mux))
+}
+
+// listen 은 고정 포트(설정 유지를 위해)를 우선 시도하고, 점유돼 있으면 후보를
+// 차례로, 모두 막히면 임의 포트로 연다.
+func listen() net.Listener {
+	for _, p := range []string{"17324", "27324", "37324"} {
+		if l, err := net.Listen("tcp", "127.0.0.1:"+p); err == nil {
+			return l
+		}
+	}
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		log.Fatalf("포트 열기 실패: %v", err)
+	}
+	return l
 }
 
 // 임베드된 스킬 문서 목록(skill/ 기준 상대경로, .md만)
