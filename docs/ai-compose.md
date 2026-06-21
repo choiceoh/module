@@ -53,13 +53,16 @@ assets, 에이전트가 필요한 1~3개만 lazy-load). **국악 깊이가 특�
   주입**한다(스킬 벤치마크의 "system-prompt injection" 모드, 6/8 우세). 국악 요청이면
   `korean-traditional.md`를 주입 → `prompt.js`의 얇은 제약이 **쿡북 기반**으로 격상.
 
-구현 메모(다음 단계):
-- `prompt.js`에 `skillRef`(주입할 레퍼런스 텍스트) 인자 추가, `messages()`가 system에
-  prepend. 토큰 절약 위해 요청 장르에 맞는 1~2개만 선별(스킬 철학과 동일).
-- 레퍼런스는 (a) 사용자가 스킬을 클론해 경로 지정, 또는 (b) CC BY 4.0 하에 국악
-  레퍼런스를 `plugins/ai-compose/skill/`에 **출처 표기와 함께 벤더링**.
+사용법(구현됨 — 벤더링 없이 연결):
+1. 스킬 설치: `npx skills add SJY051/music-composition` (또는 레포 클론).
+2. 플러그인의 **"스킬 레퍼런스"** 칸에 레퍼런스 파일 경로 지정. 창작국악이면
+   `.../references/genres/korean-traditional.md`.
+3. "생성·삽입" 시 플러그인이 그 파일을 읽어(`prompt.js`의 `skillRef`) 시스템
+   프롬프트에 주입 → 쿡북 기반 출력.
 
-> 출처(Attribution): "Composition guidance from SJY051/music-composition (CC BY 4.0)".
+> 레퍼런스를 레포에 벤더링하지 않고 **사용자가 지정한 파일을 런타임에 읽는다**(원작
+> 버전 추적·존중). CC BY 4.0 출처 표기는 프롬프트에 자동 포함된다.
+> "Composition guidance from SJY051/music-composition (CC BY 4.0)".
 
 ## 한계 / 다음 단계
 - 국악 전용 학습 모델이 희소해, 범용 LLM + 제약 프롬프트 방식이라 **품질은 반복

@@ -13,6 +13,7 @@
 import QtQuick 2.9
 import QtQuick.Controls 2.2
 import Qt.labs.settings 1.0
+import FileIO 3.0
 import MuseScore 3.0
 import "provider.js" as Provider
 import "prompt.js" as Prompt
@@ -38,7 +39,13 @@ MuseScore {
     property string timeSig: "12/8"
     property string mode: "계면조"
     property int measures: 4
+    // music-composition 스킬의 레퍼런스 파일 경로(선택). 예:
+    // .../music-composition/references/genres/korean-traditional.md
+    property string skillRefPath: ""
   }
+
+  // 선택적 레퍼런스 파일 읽기(MuseScore 내장 FileIO)
+  FileIO { id: skillFile }
 
   Column {
     anchors.fill: parent
@@ -67,6 +74,9 @@ MuseScore {
       }
       Text { text: "마디 수" }
       SpinBox { id: measF; from: 1; to: 64; value: cfg.measures }
+      Text { text: "스킬 레퍼런스" }
+      TextField { id: skillRefF; width: 300; text: cfg.skillRefPath
+        placeholderText: ".../references/genres/korean-traditional.md (선택)" }
     }
 
     Text { text: "요청(자연어). 비우면 선택 구간을 '이어쓰기' 합니다." }
@@ -105,6 +115,15 @@ MuseScore {
     cfg.baseUrl = baseUrlF.text; cfg.model = modelF.text; cfg.apiKey = keyF.text;
     cfg.instrument = instF.text; cfg.mode = modeF.text;
     cfg.jangdan = jangF.text; cfg.timeSig = tsF.text; cfg.measures = measF.value;
+    cfg.skillRefPath = skillRefF.text;
+  }
+
+  // 스킬 레퍼런스 파일이 지정돼 있으면 본문을 읽어 반환(없으면 "").
+  function loadSkillRef() {
+    if (!skillRefF.text) return "";
+    skillFile.source = skillRefF.text;
+    var t = skillFile.read();
+    return t ? t : "";
   }
 
   function generate() {
@@ -121,7 +140,7 @@ MuseScore {
     };
     var conf = { baseUrl: baseUrlF.text, apiKey: keyF.text, model: modelF.text };
 
-    Provider.chat(conf, Prompt.messages(ctx), function (content, err) {
+    Provider.chat(conf, Prompt.messages(ctx, loadSkillRef()), function (content, err) {
       if (err) { statusT.text = "오류: " + err; genBtn.enabled = true; return; }
       var notes = Provider.parseNotes(content);
       if (!notes) { statusT.text = "음표 JSON 파싱 실패. 응답: " + content.substring(0, 120); genBtn.enabled = true; return; }

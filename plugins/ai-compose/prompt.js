@@ -51,9 +51,17 @@ function user(ctx) {
   return lines.join("\n");
 }
 
-function messages(ctx) {
+// skillRef: 선택적 작곡 레퍼런스 본문(예: music-composition 스킬의
+// references/genres/korean-traditional.md). 있으면 system 프롬프트에 주입해
+// 답변 품질을 쿡북 기반으로 격상한다.
+function messages(ctx, skillRef) {
+  var sys = system();
+  if (skillRef && skillRef.length) {
+    sys += "\n\n[참고 자료 — 아래 가이드를 우선 적용해 작곡하라.\n" +
+           "출처: SJY051/music-composition (CC BY 4.0)]\n" + skillRef;
+  }
   return [
-    { role: "system", content: system() },
+    { role: "system", content: sys },
     { role: "user", content: user(ctx) }
   ];
 }
