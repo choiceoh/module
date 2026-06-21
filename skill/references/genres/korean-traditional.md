@@ -151,7 +151,7 @@ Korean traditional music uses several modal systems (*jo*, 조). The two most im
 
 ### Pyeongjo (평조)
 
-Built on **sol** (솔선법): the pentatonic **솔-라-도-레-미** with sol as the tonal center. Relative to the tonic that is **^1, ^2, ^4, ^5, ^6** (a major-2nd + minor-3rd framework) — *not* the Western major pentatonic (do-re-mi-sol-la); the missing ^3 is a common mistake. Remember that Korean pitch-name systems such as *hwangjong* (황종) are not simply fixed Western concert pitches.
+In court music (정악) and 경토리 folk, *pyeongjo* is built on **sol** (솔선법): the pentatonic **솔-라-도-레-미**, i.e. **^1, ^2, ^4, ^5, ^6** relative to sol (major-2nd + minor-3rd) — *not* the Western major pentatonic (do-re-mi-sol-la). **Caution — the term is repertoire-dependent:** in *pansori*/*sanjo* theory *pyeongjo* instead denotes **레-미-솔-라-도** (a calmer, subdued mode), while **솔-라-도-레-미** is there called ***ujo*** (우조). So name the repertoire before applying a pitch formula. (Korean pitch-name systems such as *hwangjong* (황종) are not simply fixed Western concert pitches.)
 
 Bright, balanced, often festive feel. Used in court music and brighter folk.
 

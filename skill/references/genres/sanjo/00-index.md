@@ -26,7 +26,7 @@
 | 대금산조 | 박종기 | 박종기제·강백천(시나위제)·한주환·한범수 | `references/genres/sanjo/daegeum-sanjo.md` |
 | 해금산조 | 지용구 | 지영희(정립)·한범수 | `references/genres/sanjo/haegeum-sanjo.md` |
 | 아쟁산조 | 한일섭 | 한일섭·정철호·장월중선(김일구)·박종선 | `references/genres/sanjo/ajaeng-sanjo.md` |
-| 피리산조 | 이충선 | 이충선(서한범 채보·정리) | `references/genres/sanjo/piri-sanjo.md` |
+| 피리산조 | 이충선 | 이충선류·정재국류·박범훈류·서용석류 | `references/genres/sanjo/piri-sanjo.md` |
 
 ## 창작국악에서 산조 어법 쓰기 (공통)
 - **한배 점층을 형식으로**: 진양조→자진모리의 *느림→빠름* 가속을 곡(또는 악장)의
