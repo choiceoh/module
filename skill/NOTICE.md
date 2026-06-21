@@ -19,6 +19,10 @@
   (가야금·거문고·대금·해금·아쟁·피리산조) + 인덱스.
 - `references/genres/minyo/` — 토리별 민요 채보 예시, 곡별 개별 페이지(본조아리랑·
   도라지타령·정선아리랑·진도아리랑·수심가·오돌또기) + 인덱스.
+- `references/genres/jeongak/` — 정악 어법(만중삭 한배·연음) + 영산회상·수제천 개별
+  페이지 + 인덱스.
+- `references/genres/sinawi.md` — 시나위(즉흥 합주·헤테로포니·통제된 즉흥) 어법.
+- `references/genres/gugak-orchestra.md` — 국악관현악 편성·좌석 배치·악기 역할 표준.
 - `references/00-navigation.md` — 창작국악 특화 큐레이션 라우터로 전면 재작성.
 
 ## 큐레이션 (무관 문서 제거)

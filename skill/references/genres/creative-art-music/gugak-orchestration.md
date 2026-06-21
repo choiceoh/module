@@ -2,7 +2,8 @@
 
 > 허브 `../korean-creative-art-music.md` 4절의 상세판. 악기별 음역·음량은
 > `../../instrument-idiom/korean/`(각 악기 + 인덱스), 서양 관현악 텍스처는
-> `../../orchestration/`.
+> `../../orchestration/`. **국악관현악 편성·좌석 배치·악기 역할 표준**(이 문서는
+> 텍스처 작법, 그쪽은 편성 레퍼런스)은 `../gugak-orchestra.md`.
 
 ## 문제
 국악기는 **배음이 강하고** 음색이 개성적이라 서양식으로 쌓으면 쉽게 **뭉갠다(탁함)**.
