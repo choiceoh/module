@@ -30,18 +30,20 @@
   #fileInfo { font-size:13px; margin-top:8px; white-space:pre-wrap; }
   #out { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; min-height:80px; white-space:pre-wrap; }
   details summary { cursor:pointer; color:var(--mut); font-size:13px; }
+  .setbox { border:1px solid var(--line); border-radius:10px; background:#fff; padding:10px 14px; margin:0 0 16px; }
+  .setbox > summary { font-weight:600; color:var(--mut); font-size:13px; list-style:none; }
+  .setbox[open] > summary { margin-bottom:8px; }
   .err { color:#c33; }
 </style>
 </head>
 <body>
 <header>
   <h1>sojeongcompose · AI 작곡 보조 <span class="muted">(창작국악)</span></h1>
-  <p>Finale에서 내보낸 <b>MusicXML</b>을 넣고 질문하면, 다음 선율·화성·시김새 아이디어를 줍니다. 설치 불필요.</p>
 </header>
 <main>
 
-  <fieldset>
-    <legend>1. AI 설정 (OpenAI 호환 · GLM/OpenAI/로컬)</legend>
+  <details id="settings" class="setbox">
+    <summary>⚙ AI 설정 — 모델·엔드포인트·키 (처음 한 번만)</summary>
     <div class="row">
       <div><label>Base URL</label><input id="baseUrl" type="text" placeholder="https://api.z.ai/api/paas/v4"></div>
       <div><label>모델</label><input id="model" type="text" placeholder="glm-4.6 / gpt-4o-mini …"></div>
@@ -49,10 +51,10 @@
     <label>API 키 <span class="muted">(이 브라우저에만 저장)</span></label>
     <input id="apiKey" type="password" placeholder="sk-...">
     <p class="muted">예) GLM: Base URL <code>https://api.z.ai/api/paas/v4</code>, 모델 <code>glm-4.6</code>. 정확한 값은 공급자 문서 확인.</p>
-  </fieldset>
+  </details>
 
   <fieldset>
-    <legend>2. 곡 정보 + Finale 파일</legend>
+    <legend>1. 곡 정보 + Finale 파일</legend>
     <div class="row">
       <div><label>악기</label><input id="instrument" type="text" placeholder="해금 / 가야금 …"></div>
       <div><label>조</label><input id="mode" type="text" placeholder="평조 / 계면조"></div>
@@ -66,7 +68,7 @@
   </fieldset>
 
   <fieldset>
-    <legend>3. 질문</legend>
+    <legend>2. 질문</legend>
     <textarea id="question" rows="3" placeholder="예) 이 도입부 다음에 이어질 8마디 선율 아이디어 3개 줘. 계면조 느낌 살려서, 해금 음역 안에서."></textarea>
     <p class="muted">✓ 국악·화성·선율·형식·리듬 등 <b>작곡 지식이 내장</b>되어 질문에 맞게 자동 적용됩니다(붙여넣기 불필요).</p>
     <details style="margin-top:4px">
@@ -77,7 +79,7 @@
   </fieldset>
 
   <fieldset>
-    <legend>4. 결과</legend>
+    <legend>3. 결과</legend>
     <div id="out" class="muted">여기에 AI의 작곡 아이디어가 표시됩니다.</div>
   </fieldset>
 
@@ -6878,6 +6880,8 @@ function loadCfg(){ try{ const c=JSON.parse(localStorage.getItem("sjc-ai")||"{}"
   CFG_KEYS.forEach(k=>{ if(c[k]!=null) $(k).value=c[k]; }); }catch(e){} }
 function saveCfg(){ const c={}; CFG_KEYS.forEach(k=>c[k]=$(k).value); localStorage.setItem("sjc-ai",JSON.stringify(c)); }
 loadCfg();
+// 키가 아직 없으면(첫 실행) 설정을 펼쳐 안내, 이미 있으면 접어둠
+if(!$("apiKey").value){ const s=document.getElementById("settings"); if(s) s.open=true; }
 
 // ---- 파일 처리 ----
 let parsedSummary = "";
