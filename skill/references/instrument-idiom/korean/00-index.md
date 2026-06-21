@@ -35,6 +35,12 @@
 | 타 | 북(소리북·좌고·용고) | `references/instrument-idiom/korean/buk.md` |
 | 타 | 꽹과리·징·박·운라 | `references/instrument-idiom/korean/samul-metals.md` |
 | 성악 | 정가·판소리·민요 | `references/instrument-idiom/korean/vocals.md` |
+| **확장** | **창작·현대 표현기법(특수주법) 개요** | `references/instrument-idiom/korean/extended-techniques.md` |
+
+> **창작곡의 확장/현대 주법**(하모닉스·글리산도·멀티포닉스·플라터텅잉·col legno·타악적
+> 주법 등)은 위 `extended-techniques.md`(개요·공통 어휘) + 각 멜로디 악기 문서의
+> "창작·확장 표현기법" 절을 함께 보라. 1차 자료: 국립국악원 「창작을 위한 국악기
+> 이해와 활용」(가야금·거문고·대금·피리·해금·아쟁).
 
 ## 작곡 시 빠른 체크
 - **발음 수단**을 틀리지 않았는가? 발현(가야금=맨손/거문고=술대)·찰현(해금·아쟁=활)·

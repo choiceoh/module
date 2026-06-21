@@ -30,6 +30,18 @@
 - ✗ "작으니 음량도 작겠지" — **반대다.** 매우 크고 강하다(밸런스 주의).
 - ✗ 화음 — 단선율 관악기. 동시에 여러 음 불가.
 
+## 창작·확장 표현기법
+국립국악원 「창작을 위한 국악기 이해와 활용」(피리 편) 등 참조(개요는
+`extended-techniques.md`). 강한 음량·풍부한 입술 제어 덕에 확장 주법이 다양:
+- **글리산도**, **하모닉스**, **이중트릴(double trills)**, **구르는소리(rollender ton)**,
+  **사분음(viertelton)**, **다중음(multiphonics/mehrklänge)**, **플라터텅잉
+  (flatterzunge)**, **비스비글리안도(bisbigliando)**.
+- 이들은 전통 **시루·루러·농음·추성·퇴성**의 연장선(겹서·입술 압력 제어). 윤이상의
+  오보에 기법과 피리 주법을 잇는 연구도 있다.
+- 음량이 크므로 **과용 금지**. 여린 대목은 세피리.
+- ⚠ 가능 범위·기보는 **연주자와 합의**(→ `extended-techniques.md`,
+  `../../genres/creative-art-music/notation-for-players.md`).
+
 ### 교차참조
 태평소 `taepyeongso.md`(더 큰 겹서 금속나팔) · 대금 `daegeum.md`(음색 대비) ·
 인덱스 `00-index.md` · 관현악 밸런스 `../../orchestration/`

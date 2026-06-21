@@ -16,6 +16,7 @@
 |---|---|
 | **창작국악 작곡(선법 화성화·시김새·장단·국악관현악·실전 처방)** | `references/genres/korean-creative-art-music.md` ★먼저(허브) → 상세는 `references/genres/creative-art-music/`(modal-harmony·sigimsae-texture·jangdan-as-form·gugak-orchestration·notation-for-players·diagnostics·lineage-and-aesthetics) |
 | **국악기 주법·특성·편성(가야금/거문고/해금/대금/장구 등)** | `references/instrument-idiom/korean/00-index.md` ★먼저 → 해당 악기 파일 |
+| **국악기 창작·현대 표현기법(특수주법: 하모닉스·멀티포닉스·col legno·타악주법 등)** | `references/instrument-idiom/korean/extended-techniques.md` → 해당 악기 파일의 "창작·확장 표현기법" 절 |
 | **국악 지역별 어법(토리: 경기·메나리·육자배기·수심가·제주)·향토 색채** | `references/genres/korean-regional-toris.md` |
 | **산조 유파(전승 계보)별 어법(가야금·거문고·대금·해금·아쟁산조)** | `references/genres/sanjo/00-index.md` ★먼저 → 악기 파일 |
 | **민요 채보 예시(토리별 실제 곡 분석: 아리랑·도라지·진도·수심가·오돌또기)** | `references/genres/minyo/00-index.md` ★먼저 → 곡 파일 |
