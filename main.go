@@ -33,7 +33,7 @@ var abcjsJS []byte
 //go:embed all:skill
 var skillFS embed.FS
 
-var httpClient = &http.Client{Timeout: 300 * time.Second}
+var httpClient = &http.Client{Timeout: 600 * time.Second}
 
 const maxIters = 8
 
@@ -213,7 +213,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 
 	for i := 0; i < maxIters; i++ {
 		body, _ := json.Marshal(map[string]any{
-			"model": req.Model, "temperature": 0.8, "max_tokens": 4000,
+			"model": req.Model, "temperature": 0.8,
 			"messages": messages, "tools": tools, "tool_choice": "auto",
 		})
 		respBytes, status, err := callProvider(req, body)
