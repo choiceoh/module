@@ -16,6 +16,7 @@
 |---|---|
 | **창작국악 작곡(선법 화성화·시김새·장단·국악관현악·실전 처방)** | `references/genres/korean-creative-art-music.md` ★먼저 |
 | **국악기 주법·특성·편성(가야금/거문고/해금/대금/장구 등)** | `references/instrument-idiom/korean/00-index.md` ★먼저 → 해당 악기 파일 |
+| **국악 지역별 어법(토리: 경기·메나리·육자배기·수심가·제주)·향토 색채** | `references/genres/korean-regional-toris.md` |
 | 전통 국악 토대(정악·민속·산조·시나위·시김새) | `references/genres/korean-traditional.md` |
 | 민속·전통 일반 / 월드 | `references/genres/folk-roots-and-traditions.md`, `references/genres/folk-and-world.md` |
 | 서양 예술음악 시대 양식(바로크~현대) | `references/genres/classical-periods.md` |
