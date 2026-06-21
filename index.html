@@ -54,17 +54,14 @@
   </details>
 
   <fieldset>
-    <legend>1. 곡 정보 + Finale 파일</legend>
-    <div class="row">
-      <div><label>악기</label><input id="instrument" type="text" placeholder="해금 / 가야금 …"></div>
-      <div><label>조</label><input id="mode" type="text" placeholder="평조 / 계면조"></div>
-      <div><label>장단</label><input id="jangdan" type="text" placeholder="굿거리 / 자진모리 …"></div>
-    </div>
+    <legend>1. Finale 파일 + 곡 설명</legend>
     <label>Finale에서 내보낸 MusicXML 파일 (.xml / .mxl)</label>
     <div id="drop" class="drop">여기로 파일을 끌어다 놓거나 클릭해서 선택<br>
       <span class="muted">⚠ Finale의 <b>.musx</b>는 안 됨 → <b>파일 → MusicXML 내보내기</b>로 <b>.xml</b> 또는 <b>.mxl</b>(압축) 만들어 넣기</span></div>
     <input id="file" type="file" accept=".xml,.musicxml,.mxl" style="display:none">
     <div id="fileInfo" class="muted"></div>
+    <label style="margin-top:10px">곡 특성·악상 <span class="muted">(분위기·의도, 그리고 악보에서 안 읽히는 조·장단·시김새 — 선택)</span></label>
+    <textarea id="intent" rows="3" placeholder="예) 계면조의 애절한 정서, 중모리 장단. 도입은 정적이다가 후반으로 갈수록 격해지는 흐름. 해금의 농현(요성)을 살리고 싶음. — 평조/계면조나 장단은 악보(조표·박자표)만으론 알 수 없으니 여기 적어주세요. 악기·음표는 파일에서 자동으로 읽습니다."></textarea>
   </fieldset>
 
   <fieldset>
@@ -94,7 +91,7 @@ const STEP_SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 const SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
 // ---- 설정 저장/복원 ----
-const CFG_KEYS = ["baseUrl","model","apiKey","instrument","mode","jangdan"];
+const CFG_KEYS = ["baseUrl","model","apiKey"];
 function loadCfg(){ try{ const c=JSON.parse(localStorage.getItem("sjc-ai")||"{}");
   CFG_KEYS.forEach(k=>{ if(c[k]!=null) $(k).value=c[k]; }); }catch(e){} }
 function saveCfg(){ const c={}; CFG_KEYS.forEach(k=>c[k]=$(k).value); localStorage.setItem("sjc-ai",JSON.stringify(c)); }
@@ -184,8 +181,8 @@ function parseMusicXml(xml){
   if(doc.getElementsByTagName("parsererror").length) throw new Error("올바른 XML이 아닙니다");
   const title = txt(doc.documentElement,"movement-title")||txt(doc.documentElement,"work-title")||"(제목없음)";
   // 파트 이름
-  const names={}; const sp=doc.getElementsByTagName("score-part");
-  for(const p of sp){ names[p.getAttribute("id")]=txt(p,"part-name")||p.getAttribute("id"); }
+  const names={}; const partNames=[]; const sp=doc.getElementsByTagName("score-part");
+  for(const p of sp){ const nm=(txt(p,"part-name")||p.getAttribute("id")||"").trim(); names[p.getAttribute("id")]=nm; if(nm) partNames.push(nm); }
   // 조표/박자(첫 마디)
   let key="", time="";
   const fifths=doc.getElementsByTagName("fifths")[0]; if(fifths) key="fifths="+fifths.textContent;
@@ -207,9 +204,10 @@ function parseMusicXml(xml){
     const shown=seq.slice(0,400);
     lines.push("["+(names[id]||id)+"] ("+seq.length+"음) "+shown.join(" "));
   }
-  const head="제목: "+title+(key?" · "+key:"")+(time?" · "+time:"")+" · 파트 "+parts.length+"개";
+  const head="제목: "+title+(key?" · "+key:"")+(time?" · "+time:"")
+    +(partNames.length?" · 악기: "+partNames.join(", "):" · 파트 "+parts.length+"개");
   const summary=head+"\n"+lines.join("\n");
-  return { head, summary };
+  return { head, summary, partNames, time };
 }
 
 // ---- API 호출 (백엔드 에이전트 루프) ----
@@ -223,8 +221,8 @@ async function callAI(){
   try{
     const res=await fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({ baseUrl:base, apiKey:key, model,
-        instrument:$("instrument").value, mode:$("mode").value, jangdan:$("jangdan").value,
-        score:parsedSummary, question:$("question").value, extra:$("extra").value }) });
+        intent:$("intent").value, score:parsedSummary,
+        question:$("question").value, extra:$("extra").value }) });
     const data=await res.json();
     if(data.error){ throw new Error(data.error); }
     $("out").textContent=data.content||"(빈 응답)";

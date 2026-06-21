@@ -36,15 +36,13 @@ const maxIters = 8
 
 // 프런트엔드 → 백엔드 요청(원시 입력; 메시지/지식 구성은 백엔드가 함)
 type uiReq struct {
-	BaseURL    string `json:"baseUrl"`
-	APIKey     string `json:"apiKey"`
-	Model      string `json:"model"`
-	Instrument string `json:"instrument"`
-	Mode       string `json:"mode"`
-	Jangdan    string `json:"jangdan"`
-	Score      string `json:"score"`
-	Question   string `json:"question"`
-	Extra      string `json:"extra"`
+	BaseURL  string `json:"baseUrl"`
+	APIKey   string `json:"apiKey"`
+	Model    string `json:"model"`
+	Intent   string `json:"intent"` // 곡 특성·나타내려는 악상(작곡가 서술)
+	Score    string `json:"score"`  // MusicXML 요약(악기·조표·박자·음 나열)
+	Question string `json:"question"`
+	Extra    string `json:"extra"`
 }
 
 func main() {
@@ -100,11 +98,18 @@ func systemPrompt() string {
 	b.WriteString("창작국악은 서양 화성·작곡 기법 위에서 오선보·평균율로, 국악기와 국악 어법(장단,\n")
 	b.WriteString("평조/계면조, 시김새: 요성·퇴성·추성 등)을 살려 작곡합니다.\n")
 	b.WriteString("규칙: 빈말·과장된 칭찬 금지. 음 이름(C4 등)·화성 진행·도약/순차·장단 정렬·악기 음역·\n")
-	b.WriteString("시김새 적용 지점을 구체적으로. 모르면 솔직히. 한국어로 답한다.\n\n")
+	b.WriteString("시김새 적용 지점을 구체적으로. 모르면 솔직히. 한국어로 답한다.\n")
+	b.WriteString("편성 규칙: 악보 요약에 있는 파트(악기)만 다뤄라. 파트가 하나면 솔로곡이다 —\n")
+	b.WriteString("임의로 '가야금1·가야금2'처럼 성부를 늘리지 마라(편성 확장은 사용자가 요청할 때만).\n")
+	b.WriteString("악기 규칙: 국악기 주법·특성·편성을 말하기 전에 반드시\n")
+	b.WriteString("references/instrument-idiom/korean/00-index.md 와 해당 악기 문서를 읽어\n")
+	b.WriteString("발음 수단(가야금=맨손가락/거문고=술대/해금·아쟁=활/대금=입김)과 농현 방식을 확인하라.\n")
+	b.WriteString("예: 가야금은 술대를 쓰지 않는다(술대는 거문고 전용). 추측으로 주법을 지어내지 마라.\n\n")
 	b.WriteString("당신에게는 작곡 스킬 문서를 읽는 read_doc(path) 도구가 있습니다.\n")
 	b.WriteString("먼저 references/00-navigation.md 를 읽어 어떤 문서가 필요한지 판단하고,\n")
 	b.WriteString("질문에 직접 관련된 문서 1~3개만 읽은 뒤, 그 가이드에 근거해 답하세요\n")
-	b.WriteString("(전부 읽지 말 것 — 5개 이상이면 질문이 너무 넓은 것).\n\n")
+	b.WriteString("(전부 읽지 말 것 — 5개 이상이면 질문이 너무 넓은 것).\n")
+	b.WriteString("read_doc 의 path 는 문서 목록에 적힌 그대로(references/... 또는 assets/...) 써라.\n\n")
 	b.WriteString("=== 작곡 스킬 핵심 지침 (SKILL.md) ===\n")
 	b.Write(skill)
 	b.WriteString("\n\n=== 읽을 수 있는 문서 목록 (read_doc 의 path 로 사용) ===\n")
@@ -114,17 +119,11 @@ func systemPrompt() string {
 
 func userPrompt(r uiReq) string {
 	var p []string
-	if r.Instrument != "" {
-		p = append(p, "악기: "+r.Instrument)
-	}
-	if r.Mode != "" {
-		p = append(p, "조: "+r.Mode)
-	}
-	if r.Jangdan != "" {
-		p = append(p, "장단: "+r.Jangdan)
+	if r.Intent != "" {
+		p = append(p, "곡 특성·나타내려는 악상(작곡가 서술): "+r.Intent)
 	}
 	if r.Score != "" {
-		p = append(p, "악보(MusicXML 요약):\n"+r.Score)
+		p = append(p, "악보(MusicXML 요약 — 악기·조표·박자는 여기서 읽어라):\n"+r.Score)
 	}
 	if r.Extra != "" {
 		p = append(p, "[사용자 추가 지식 — 우선 적용]\n"+r.Extra)
