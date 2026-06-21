@@ -7,7 +7,7 @@ Finale로 작업하던 국악 작곡가가, 오선보 기반 위에서 **국악�
 쓸 수 있도록, 오픈소스 [MuseScore Studio 4](https://github.com/musescore/MuseScore)
 를 포크해 국악에 특화시킨다.
 
-> 이 디렉터리는 **포크 오버레이 + 국악 자산 + 빌드/브랜딩 도구**를 담는다.
+> 이 레포는 **포크 오버레이 + 국악 자산 + 빌드/브랜딩 도구**를 담는다.
 > MuseScore 전체 소스를 복사해 두지 않고, 업스트림을 클론한 뒤 이 오버레이를
 > 얹는 방식으로 깔끔한 하드 포크를 유지한다(업스트림 업데이트 병합 용이).
 
@@ -29,10 +29,10 @@ Finale로 작업하던 국악 작곡가가, 오선보 기반 위에서 **국악�
 
 ---
 
-## 디렉터리 구조
+## 레포 구조 (이 레포 루트)
 
 ```
-sojeongcompose/
+.  (choiceoh/sojeongcompose)
 ├── README.md                         # (이 문서) 전략·빌드·로드맵
 ├── overlay/                          # 업스트림 소스 위에 덮어쓸 파일들
 │   └── share/instruments/
@@ -64,7 +64,7 @@ sojeongcompose/
 
 ```bash
 # 1) 업스트림 MuseScore 를 작업 폴더에 클론하고 안정 태그로 고정 + 국악 오버레이 적용
-cd sojeongcompose
+#    (이 레포 루트에서 실행)
 ./scripts/bootstrap.sh            # Windows: pwsh ./scripts/bootstrap.ps1
 
 # 2) 빌드 (예: Linux). ※ Linux VST3(조선 시리즈) 재생은 MuseScore 4.6.0+ 필요
