@@ -1,19 +1,44 @@
 # sojeongcompose
 
-**창작국악 작곡가를 위한 AI 작곡 보조 — 설치 없는 HTML 한 파일.**
+**창작국악 작곡가를 위한 AI 작곡 보조.**
 
 Finale로 작업하는 창작국악 작곡가가, **Finale에서 내보낸 MusicXML**을 넣고 질문하면
-다음 **선율·화성·시김새·장단 아이디어**를 받는 도구. 브라우저로 `index.html`만 열면
-끝(설치·빌드·서버 불필요). AI는 **OpenAI 호환 API**(GLM·OpenAI·로컬 등)를 쓴다.
+다음 **선율·화성·시김새·장단 아이디어**를 받는 도구. AI는 **OpenAI 호환 API**
+(GLM·OpenAI·로컬 등)를 쓴다.
 
 > 창작국악 = 서양 화성·작곡 기법을 배운 작곡가가 오선보·평균율 위에서 국악기·국악
 > 어법(장단·평조/계면조·시김새)을 살려 작곡하는 현대 한국 창작음악.
 
 ---
 
-## 빠른 시작
+## 두 가지 실행 방법
 
-1. **`index.html` 더블클릭** → 브라우저로 열기.
+### A. 독립 실행파일 (권장 — CORS 문제 없음)
+`main.go` 가 `index.html` 을 내장해 localhost로 띄우고 **백엔드가 AI를 호출**한다
+(브라우저 직접 호출이 아니라 CORS 차단이 없음). 더블클릭하면 기본 브라우저로 열린다.
+
+빌드:
+```bash
+go build -o sojeongcompose .          # 현재 OS용
+# 크로스컴파일 예) GOOS=windows GOARCH=amd64 go build -o sojeongcompose.exe .
+#                 GOOS=darwin  GOARCH=arm64 go build -o sojeongcompose .
+#                 GOOS=linux   GOARCH=arm64 go build -o sojeongcompose .
+```
+실행 후 안내되는 `http://127.0.0.1:PORT` 가 열린다. 창을 닫으면 종료.
+
+> 배포 바이너리는 **서명이 없어** 첫 실행 시 OS 경고가 뜬다: macOS는 우클릭 → 열기
+> (또는 `xattr -d com.apple.quarantine <파일>`), Windows는 SmartScreen → 추가 정보
+> → 실행. mac/Linux는 `chmod +x <파일>` 필요할 수 있음.
+
+### B. HTML 단독 (`index.html` 더블클릭)
+서버 없이 브라우저로 바로 열림. 단, 브라우저가 API를 직접 호출하므로 일부 공급자는
+**CORS**로 막을 수 있음(그럴 땐 A를 쓰거나 CORS 허용 공급자/로컬 모델).
+
+---
+
+## 사용 (공통)
+
+1. 실행(A) 또는 `index.html` 열기(B).
 2. **AI 설정**: Base URL·모델·키 입력
    (예: GLM `https://api.z.ai/api/paas/v4`, 모델 `glm-4.6`, 본인 키).
    키는 그 브라우저(localStorage)에만 저장된다.

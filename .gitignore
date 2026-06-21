@@ -1,0 +1,6 @@
+# 빌드 산출물 (실행파일은 git에 넣지 않음)
+/dist/
+sojeongcompose-windows-*
+sojeongcompose-macos-*
+sojeongcompose-linux-*
+*.exe

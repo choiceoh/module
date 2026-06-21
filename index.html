@@ -7005,22 +7005,29 @@ async function callAI(){
   $("go").disabled=true; setStatus("생각 중…");
   $("out").textContent="";
   const sel=selectKnowledge([$("question").value,$("mode").value,$("jangdan").value,$("instrument").value].join(" "));
+  const messages=[{role:"system",content:systemPrompt(sel.text)},{role:"user",content:userPrompt()}];
+  // 독립 프로그램(Go)으로 띄우면 http:// → 백엔드 경유(CORS 없음). file://이면 직접 호출.
+  const viaProxy = location.protocol==="http:" || location.protocol==="https:";
   try{
-    const res=await fetch(base+"/chat/completions",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+key },
-      body:JSON.stringify({ model, temperature:0.8, messages:[
-        {role:"system",content:systemPrompt(sel.text)},
-        {role:"user",content:userPrompt()} ]})
-    });
+    let res;
+    if(viaProxy){
+      res=await fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ baseUrl:base, apiKey:key, model, temperature:0.8, messages }) });
+    } else {
+      res=await fetch(base+"/chat/completions",{ method:"POST",
+        headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+key },
+        body:JSON.stringify({ model, temperature:0.8, messages }) });
+    }
     if(!res.ok){ throw new Error("HTTP "+res.status+" — "+(await res.text()).slice(0,300)); }
     const data=await res.json();
     const content=data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
     $("out").textContent=content||"(빈 응답)";
     setStatus("완료 · 내장지식 "+sel.used.length+"개 적용");
   }catch(e){
-    $("out").innerHTML='<span class="err">오류: '+e.message+'</span>'+
-      '<br><span class="muted">CORS 차단이면 공급자가 브라우저 호출을 막는 것 — CORS 허용 공급자(OpenRouter 등)나 로컬 모델을 쓰세요.</span>';
+    const hint = viaProxy
+      ? 'Base URL·모델·키와 네트워크를 확인하세요.'
+      : 'CORS 차단이면 공급자가 브라우저 직접 호출을 막는 것 — 독립 프로그램(Go)으로 실행하거나 CORS 허용 공급자/로컬 모델을 쓰세요.';
+    $("out").innerHTML='<span class="err">오류: '+e.message+'</span><br><span class="muted">'+hint+'</span>';
     setStatus("실패",true);
   }finally{ $("go").disabled=false; }
 }
