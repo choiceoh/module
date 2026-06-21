@@ -16,11 +16,14 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -63,6 +66,7 @@ func main() {
 		w.Header().Set("Cache-Control", "max-age=86400")
 		w.Write(abcjsJS)
 	})
+	mux.HandleFunc("/api/config", handleConfig)
 	mux.HandleFunc("/api/chat", handleChat)
 
 	// 고정 포트로 띄운다 → 브라우저 origin(host:port)이 매 실행·매 빌드마다 같아져
@@ -92,6 +96,64 @@ func listen() net.Listener {
 		log.Fatalf("포트 열기 실패: %v", err)
 	}
 	return l
+}
+
+// ---- 설정(Base URL·모델·API 키) 앱 설정 파일 저장 ----
+// 사용자 설정 디렉터리의 sojeongcompose/config.json 에 저장한다(파일 권한 0600).
+// 브라우저 localStorage 와 무관하게 유지되어, 어떤 빌드/브라우저에서도 키가 보존된다.
+type appConfig struct {
+	BaseURL string `json:"baseUrl"`
+	Model   string `json:"model"`
+	APIKey  string `json:"apiKey"`
+}
+
+var cfgMu sync.Mutex
+
+func configPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil || dir == "" {
+		if h, e := os.UserHomeDir(); e == nil {
+			dir = h
+		} else {
+			dir = "."
+		}
+	}
+	return filepath.Join(dir, "sojeongcompose", "config.json")
+}
+
+func handleConfig(w http.ResponseWriter, r *http.Request) {
+	p := configPath()
+	switch r.Method {
+	case http.MethodGet:
+		cfgMu.Lock()
+		b, err := os.ReadFile(p)
+		cfgMu.Unlock()
+		var c appConfig
+		if err == nil {
+			json.Unmarshal(b, &c)
+		}
+		writeJSON(w, c)
+	case http.MethodPost:
+		var c appConfig
+		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+			writeJSON(w, map[string]any{"error": "bad request: " + err.Error()})
+			return
+		}
+		cfgMu.Lock()
+		defer cfgMu.Unlock()
+		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		b, _ := json.MarshalIndent(c, "", "  ")
+		if err := os.WriteFile(p, b, 0600); err != nil {
+			writeJSON(w, map[string]any{"error": err.Error()})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "path": p})
+	default:
+		http.Error(w, "GET/POST only", 405)
+	}
 }
 
 // 임베드된 스킬 문서 목록(skill/ 기준 상대경로, .md만)
