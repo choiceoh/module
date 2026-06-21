@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>sojeongcompose — AI 작곡 보조 (창작국악)</title>
+<style>
+  :root { --bg:#faf9f7; --fg:#222; --mut:#666; --line:#ddd; --accent:#7a4; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+         margin:0; background:var(--bg); color:var(--fg); line-height:1.5; }
+  header { padding:16px 20px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:4px 0 0; color:var(--mut); font-size:13px; }
+  main { max-width:880px; margin:0 auto; padding:20px; }
+  fieldset { border:1px solid var(--line); border-radius:10px; margin:0 0 16px; padding:14px 16px; background:#fff; }
+  legend { font-weight:600; padding:0 6px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:8px 0 3px; }
+  input[type=text], input[type=password], select, textarea {
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit; }
+  textarea { resize:vertical; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:160px; }
+  .drop { border:2px dashed var(--line); border-radius:10px; padding:22px; text-align:center; color:var(--mut);
+          background:#fff; cursor:pointer; }
+  .drop.hl { border-color:var(--accent); background:#f3f8f0; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:15px; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  .muted { color:var(--mut); font-size:12px; }
+  #fileInfo { font-size:13px; margin-top:8px; white-space:pre-wrap; }
+  #out { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; min-height:80px; white-space:pre-wrap; }
+  details summary { cursor:pointer; color:var(--mut); font-size:13px; }
+  .err { color:#c33; }
+</style>
+</head>
+<body>
+<header>
+  <h1>sojeongcompose · AI 작곡 보조 <span class="muted">(창작국악)</span></h1>
+  <p>Finale에서 내보낸 <b>MusicXML</b>을 넣고 질문하면, 다음 선율·화성·시김새 아이디어를 줍니다. 설치 불필요.</p>
+</header>
+<main>
+
+  <fieldset>
+    <legend>1. AI 설정 (OpenAI 호환 · GLM/OpenAI/로컬)</legend>
+    <div class="row">
+      <div><label>Base URL</label><input id="baseUrl" type="text" placeholder="https://api.z.ai/api/paas/v4"></div>
+      <div><label>모델</label><input id="model" type="text" placeholder="glm-4.6 / gpt-4o-mini …"></div>
+    </div>
+    <label>API 키 <span class="muted">(이 브라우저에만 저장)</span></label>
+    <input id="apiKey" type="password" placeholder="sk-...">
+    <p class="muted">예) GLM: Base URL <code>https://api.z.ai/api/paas/v4</code>, 모델 <code>glm-4.6</code>. 정확한 값은 공급자 문서 확인.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. 곡 정보 + Finale 파일</legend>
+    <div class="row">
+      <div><label>악기</label><input id="instrument" type="text" placeholder="해금 / 가야금 …"></div>
+      <div><label>조</label><input id="mode" type="text" placeholder="평조 / 계면조"></div>
+      <div><label>장단</label><input id="jangdan" type="text" placeholder="굿거리 / 자진모리 …"></div>
+    </div>
+    <label>Finale에서 내보낸 MusicXML 파일 (.xml / .musicxml)</label>
+    <div id="drop" class="drop">여기로 파일을 끌어다 놓거나 클릭해서 선택<br>
+      <span class="muted">Finale: 파일 → 다른 이름으로 저장 → MusicXML(압축 안 함 .xml)</span></div>
+    <input id="file" type="file" accept=".xml,.musicxml,.mxl" style="display:none">
+    <div id="fileInfo" class="muted"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. 질문</legend>
+    <textarea id="question" rows="3" placeholder="예) 이 도입부 다음에 이어질 8마디 선율 아이디어 3개 줘. 계면조 느낌 살려서, 해금 음역 안에서."></textarea>
+    <details style="margin-top:8px">
+      <summary>추가 지식 붙여넣기 (선택 — music-composition 스킬의 국악 레퍼런스 등)</summary>
+      <textarea id="extra" rows="4" placeholder="korean-traditional.md 내용을 붙여넣으면 답변 품질↑ (출처: SJY051/music-composition, CC BY 4.0)"></textarea>
+    </details>
+    <div style="margin-top:12px"><button id="go">아이디어 받기</button> <span id="status" class="muted"></span></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. 결과</legend>
+    <div id="out" class="muted">여기에 AI의 작곡 아이디어가 표시됩니다.</div>
+  </fieldset>
+
+  <p class="muted">⚠ 브라우저에서 API를 직접 호출합니다. 일부 공급자는 CORS를 막아 실패할 수 있어요(그럴 땐 CORS 허용 공급자나 로컬 모델 사용). 키는 본인 PC에만 저장되며 공유 마세요.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const STEP_SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+// ---- 설정 저장/복원 ----
+const CFG_KEYS = ["baseUrl","model","apiKey","instrument","mode","jangdan"];
+function loadCfg(){ try{ const c=JSON.parse(localStorage.getItem("sjc-ai")||"{}");
+  CFG_KEYS.forEach(k=>{ if(c[k]!=null) $(k).value=c[k]; }); }catch(e){} }
+function saveCfg(){ const c={}; CFG_KEYS.forEach(k=>c[k]=$(k).value); localStorage.setItem("sjc-ai",JSON.stringify(c)); }
+loadCfg();
+
+// ---- 파일 처리 ----
+let parsedSummary = "";
+const drop=$("drop"), fileInput=$("file");
+drop.onclick=()=>fileInput.click();
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("hl");};
+drop.ondragleave=()=>drop.classList.remove("hl");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("hl"); if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);};
+fileInput.onchange=()=>{ if(fileInput.files[0]) readFile(fileInput.files[0]); };
+
+function readFile(file){
+  if(/\.mxl$/i.test(file.name)){
+    $("fileInfo").innerHTML='<span class="err">압축 MusicXML(.mxl)은 미지원 — Finale에서 "압축 안 함" MusicXML(.xml)로 내보내세요.</span>';
+    parsedSummary=""; return;
+  }
+  const r=new FileReader();
+  r.onload=()=>{ try{ const s=parseMusicXml(r.result); parsedSummary=s.summary;
+      $("fileInfo").textContent="✓ "+file.name+"\n"+s.head; }
+    catch(err){ parsedSummary=""; $("fileInfo").innerHTML='<span class="err">파싱 실패: '+err.message+'</span>'; } };
+  r.readAsText(file);
+}
+
+// ---- MusicXML → 요약 ----
+function midiToName(step,oct,alter){ const s=STEP_SEMI[(step||"C").toUpperCase()]||0;
+  const m=(oct+1)*12+s+(alter||0); return SHARP[((m%12)+12)%12]+(Math.floor(m/12)-1); }
+function txt(el,t){ const n=el&&el.getElementsByTagName(t)[0]; return n?n.textContent:null; }
+
+function parseMusicXml(xml){
+  const doc=new DOMParser().parseFromString(xml,"application/xml");
+  if(doc.getElementsByTagName("parsererror").length) throw new Error("올바른 XML이 아닙니다");
+  const title = txt(doc.documentElement,"movement-title")||txt(doc.documentElement,"work-title")||"(제목없음)";
+  // 파트 이름
+  const names={}; const sp=doc.getElementsByTagName("score-part");
+  for(const p of sp){ names[p.getAttribute("id")]=txt(p,"part-name")||p.getAttribute("id"); }
+  // 조표/박자(첫 마디)
+  let key="", time="";
+  const fifths=doc.getElementsByTagName("fifths")[0]; if(fifths) key="fifths="+fifths.textContent;
+  const beats=doc.getElementsByTagName("beats")[0], bt=doc.getElementsByTagName("beat-type")[0];
+  if(beats&&bt) time=beats.textContent+"/"+bt.textContent;
+
+  const parts=doc.getElementsByTagName("part"); const lines=[];
+  for(const part of parts){
+    const id=part.getAttribute("id"); const seq=[];
+    const notes=part.getElementsByTagName("note");
+    for(const n of notes){
+      if(n.getElementsByTagName("grace").length) continue;
+      if(n.getElementsByTagName("rest").length){ seq.push("·"); continue; }
+      const pitch=n.getElementsByTagName("pitch")[0]; if(!pitch) continue;
+      const step=txt(pitch,"step"), oct=parseInt(txt(pitch,"octave")||"4",10);
+      const alter=parseInt(txt(pitch,"alter")||"0",10);
+      seq.push(midiToName(step,oct,alter));
+    }
+    const shown=seq.slice(0,400);
+    lines.push("["+(names[id]||id)+"] ("+seq.length+"음) "+shown.join(" "));
+  }
+  const head="제목: "+title+(key?" · "+key:"")+(time?" · "+time:"")+" · 파트 "+parts.length+"개";
+  const summary=head+"\n"+lines.join("\n");
+  return { head, summary };
+}
+
+// ---- 프롬프트 ----
+function systemPrompt(){
+  return [
+"당신은 창작국악(현대 한국 창작음악) 작곡을 돕는 전문 보조자입니다.",
+"창작국악은 서양 화성·작곡 기법을 배운 작곡가가 오선보·평균율 위에서, 국악기와",
+"국악 어법(장단, 평조/계면조, 시김새: 요성·퇴성·추성 등)을 살려 작곡합니다.",
+"규칙:",
+"- 빈말·과장된 칭찬을 하지 말고, 구체적·실전적으로 답한다.",
+"- 음 이름(예: C4, F#5), 화성 진행, 도약/순차, 장단과의 정렬, 악기 음역,",
+"  시김새 적용 지점을 구체적으로 제시한다.",
+"- 모르거나 범위 밖이면 솔직히 말한다.",
+"- 한국어로 답한다."
+  ].join("\n");
+}
+function userPrompt(){
+  const ctx=[];
+  if($("instrument").value) ctx.push("악기: "+$("instrument").value);
+  if($("mode").value) ctx.push("조: "+$("mode").value);
+  if($("jangdan").value) ctx.push("장단: "+$("jangdan").value);
+  if(parsedSummary) ctx.push("악보(MusicXML 요약):\n"+parsedSummary);
+  ctx.push("질문: "+($("question").value||"이 곡의 다음 선율 아이디어를 제안해줘."));
+  let p=ctx.join("\n\n");
+  if($("extra").value.trim()) p="[참고 지식 — 우선 적용. 출처: SJY051/music-composition (CC BY 4.0)]\n"+$("extra").value.trim()+"\n\n"+p;
+  return p;
+}
+
+// ---- API 호출 ----
+async function callAI(){
+  saveCfg();
+  const base=$("baseUrl").value.replace(/\/+$/,""), model=$("model").value, key=$("apiKey").value;
+  if(!base||!model){ setStatus("Base URL과 모델을 입력하세요.",true); return; }
+  if(!key){ setStatus("API 키를 입력하세요.",true); return; }
+  $("go").disabled=true; setStatus("생각 중…");
+  $("out").textContent="";
+  try{
+    const res=await fetch(base+"/chat/completions",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+key },
+      body:JSON.stringify({ model, temperature:0.8, messages:[
+        {role:"system",content:systemPrompt()},
+        {role:"user",content:userPrompt()} ]})
+    });
+    if(!res.ok){ throw new Error("HTTP "+res.status+" — "+(await res.text()).slice(0,300)); }
+    const data=await res.json();
+    const content=data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
+    $("out").textContent=content||"(빈 응답)";
+    setStatus("완료");
+  }catch(e){
+    $("out").innerHTML='<span class="err">오류: '+e.message+'</span>'+
+      '<br><span class="muted">CORS 차단이면 공급자가 브라우저 호출을 막는 것 — CORS 허용 공급자(OpenRouter 등)나 로컬 모델을 쓰세요.</span>';
+    setStatus("실패",true);
+  }finally{ $("go").disabled=false; }
+}
+function setStatus(t,err){ const s=$("status"); s.textContent=t; s.className=err?"err":"muted"; }
+$("go").onclick=callAI;
+CFG_KEYS.forEach(k=>$(k).addEventListener("change",saveCfg));
+</script>
+</body>
+</html>
