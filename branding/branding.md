@@ -60,3 +60,17 @@ grep -RIn "MuseScore" src/appshell | head
 
 > 설정 위치(버전별 상이): 언어/입력/단축키 factory default 는 업스트림 소스의
 > appshell/preferences 영역과 기본 리소스에서 조정한다. 빌드에서 확인 후 확정.
+
+### "Finale 워크스페이스" 기본 프로필
+목표는 Finale UI **픽셀 복제(비현실적)**가 아니라, **다시 배울 게 거의 없는 익숙함**.
+Finale **표준/기본 설정**을 기준으로 다음을 하나의 기본 워크스페이스로 묶어 첫 실행에
+적용한다(최종 사용자가 Finale 내부를 알 필요 없음):
+- Finale식 단축키(`presets/shortcuts/finale-like.xml`)
+- 음표 입력 = Input by Duration(≈ Speedy Entry)
+- 툴바·팔레트 배치, 테마, 한글 UI 를 Finale 기본 화면에 가깝게
+- 국악 편성 템플릿을 새 악보 상단에
+
+> 작성 주체: Finale 기본 구성은 **개발자가 보유 지식으로 세팅**(사용자 입력 불필요).
+> 미세 조정은 빌드 후 **실사용자(작곡가)** 가 첫 실행에서 어색한 점만 피드백 →
+> 워크스페이스/단축키를 보정(앱 내 AI 보조가 "Finale에선 이렇게 했는데?" 질문을 도움).
+> MuseScore 워크스페이스는 앱에서 구성→export(.workspace) 해 `presets/` 에 동봉한다.
