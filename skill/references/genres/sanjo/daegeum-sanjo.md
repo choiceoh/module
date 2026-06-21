@@ -34,4 +34,4 @@
 
 ### 교차참조
 산조 일반 `00-index.md` · 대금 주법 `../../instrument-idiom/korean/daegeum.md` ·
-토리(육자배기) `../korean-regional-toris.md`
+토리(육자배기) `../toris/00-index.md`

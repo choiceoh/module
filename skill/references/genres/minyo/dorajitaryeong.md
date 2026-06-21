@@ -1,6 +1,6 @@
 # 도라지타령 — 경토리(진경토리) 채보 분석
 
-> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../korean-regional-toris.md`.
+> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../toris/00-index.md`.
 
 ## 개요
 도라지·꽃·나물을 소재로 한 서울·경기의 **통속민요**. 차분하면서도 흥이 있다.
@@ -45,5 +45,5 @@
   **절제가 정체성**.
 
 ### 교차참조
-본조아리랑(신경토리 대비) `arirang-bonjo.md` · 토리 이론 `../korean-regional-toris.md`
+본조아리랑(신경토리 대비) `arirang-bonjo.md` · 토리 이론 `../toris/00-index.md`
 · 창작 실전 `../korean-creative-art-music.md`

@@ -1,6 +1,6 @@
 # 수심가 — 수심가(서도)토리 채보 분석
 
-> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../korean-regional-toris.md`.
+> 채보 범례·정확도 주의는 `00-index.md`. 토리 이론 `../toris/00-index.md`.
 > 발성은 `../../instrument-idiom/korean/vocals.md`.
 
 ## 개요
@@ -51,5 +51,5 @@
 - ✗ 종지를 라로 단정 — 중심은 라지만 **종지는 레**.
 
 ### 교차참조
-토리 이론 `../korean-regional-toris.md` · 서도 발성
+토리 이론 `../toris/00-index.md` · 서도 발성
 `../../instrument-idiom/korean/vocals.md` · 진도아리랑(남도 대비) `jindo-arirang.md`

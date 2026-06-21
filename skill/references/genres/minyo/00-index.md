@@ -1,7 +1,7 @@
 # 민요 채보 예시 — 토리별 곡 분석 (인덱스)
 
 > sojeongcompose 원본 문서(SJY051 CC BY 자료 아님). 국립국악원 국악사전·한국민족
-> 문화대백과 등 공개 자료에 근거. 토리 이론은 `../korean-regional-toris.md`, 산조
+> 문화대백과 등 공개 자료에 근거. 토리 이론은 `../toris/00-index.md`, 산조
 > 어법은 `../sanjo/00-index.md`, 악기 주법은 `../../instrument-idiom/korean/`.
 
 각 곡을 **개별 페이지**로 자세히 분석한다. 작곡 중 특정 토리의 실제 선율 거동이
@@ -33,5 +33,5 @@
 4. "창작 적용"에서 이 거동을 **자기 곡에 옮기는 법**을 가져간다(통째 인용 금지).
 
 ### 교차참조
-토리 이론 `../korean-regional-toris.md` · 산조 유파 `../sanjo/00-index.md` ·
+토리 이론 `../toris/00-index.md` · 산조 유파 `../sanjo/00-index.md` ·
 전통 토대 `../korean-traditional.md` · 창작 실전 `../korean-creative-art-music.md`

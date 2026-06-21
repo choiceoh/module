@@ -2,7 +2,7 @@
 
 > sojeongcompose 원본 문서(SJY051 CC BY 자료 아님). 이 문서는 **요약 + 라우터**다.
 > 각 주제는 `creative-art-music/` 폴더의 **상세 문서**로 깊이 들어간다. 전통 어법
-> 토대는 `korean-traditional.md`, 토리는 `korean-regional-toris.md`, 악기 어법은
+> 토대는 `korean-traditional.md`, 토리는 `toris/00-index.md`, 악기 어법은
 > `../instrument-idiom/korean/`.
 
 **대상: 정식 훈련받은 창작국악 작곡가.** 역사·약력은 *이미 안다고 전제*하고, **곡을
@@ -55,5 +55,5 @@
 ### 교차참조
 상세: `creative-art-music/`(modal-harmony·sigimsae-texture·jangdan-as-form·
 gugak-orchestration·notation-for-players·diagnostics·lineage-and-aesthetics) ·
-토리 `korean-regional-toris.md` · 산조 `sanjo/00-index.md` · 민요 채보 `minyo/00-index.md`
+토리 `toris/00-index.md` · 산조 `sanjo/00-index.md` · 민요 채보 `minyo/00-index.md`
 · 악기 `../instrument-idiom/korean/` · 전통 토대 `korean-traditional.md`

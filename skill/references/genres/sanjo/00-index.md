@@ -1,7 +1,7 @@
 # 산조 유파(전승 계보)별 어법 — 인덱스
 
 > sojeongcompose 원본 문서(SJY051 CC BY 자료 아님). 국립국악원 국악사전·한국민족
-> 문화대백과 등 공개 자료에 근거. 토리는 `../korean-regional-toris.md`, 악기 주법은
+> 문화대백과 등 공개 자료에 근거. 토리는 `../toris/00-index.md`, 악기 주법은
 > `../../instrument-idiom/korean/`, 창작 적용은 `../korean-creative-art-music.md`.
 > 명인 생몰·악장 세부는 문헌·유파마다 차이가 있을 수 있다(단언이 필요하면 출처 확인).
 
@@ -44,6 +44,6 @@
 - ✗ 명인 생몰·효시를 단정 — 문헌마다 차이가 있다.
 
 ### 교차참조
-토리 `../korean-regional-toris.md` · 민요 채보 `../minyo/00-index.md` · 전통 토대
+토리 `../toris/00-index.md` · 민요 채보 `../minyo/00-index.md` · 전통 토대
 `../korean-traditional.md` · 악기 주법 `../../instrument-idiom/korean/` · 창작 실전
 `../korean-creative-art-music.md`

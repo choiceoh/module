@@ -43,9 +43,9 @@
 - 산조·시나위·민요 어구를 **맥락 없이 차용**하면 "전통 인용이 붙어 보인다". 동기로
   **변형·발전**시켜 구조에 녹여라(인용 자체가 목적이 되지 않게 → `diagnostics.md`).
 - 토리·산조 유파의 가락은 **원리(시김새 거동·한배·조 이동)로 흡수**하는 것이 통째
-  베끼기보다 강하다(→ `../korean-regional-toris.md`·`../sanjo/00-index.md`).
+  베끼기보다 강하다(→ `../toris/00-index.md`·`../sanjo/00-index.md`).
 
 ### 교차참조
 허브 `../korean-creative-art-music.md` · 선법 화성 `modal-harmony.md` · 관현악
-`gugak-orchestration.md` · 토리 `../korean-regional-toris.md` · 산조 유파
+`gugak-orchestration.md` · 토리 `../toris/00-index.md` · 산조 유파
 `../sanjo/00-index.md` · 진단 `diagnostics.md`

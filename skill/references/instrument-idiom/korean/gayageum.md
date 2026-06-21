@@ -95,4 +95,4 @@
 ### 교차참조
 거문고 `geomungo.md`(대비) · 확장 주법 `extended-techniques.md` · 인덱스 `00-index.md`
 · 비평균율 `../../fundamentals/pitch-intervals-scales.md` · 창작 실전
-`../../genres/korean-creative-art-music.md` · 토리(계면조 기능음) `../../genres/korean-regional-toris.md`
+`../../genres/korean-creative-art-music.md` · 토리(계면조 기능음) `../../genres/toris/00-index.md`

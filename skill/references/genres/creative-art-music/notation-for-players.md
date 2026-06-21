@@ -9,7 +9,7 @@
 
 ## 농현(요성) 기보
 - **물결선** + **폭(±)**·**속도** 지시: 예) "넓고 느린 농현" vs "좁고 빠른". 토리별
-  거동(남도=굵고 느리게, 서도=잘고 빠르게)을 말로 보완(→ `../korean-regional-toris.md`).
+  거동(남도=굵고 느리게, 서도=잘고 빠르게)을 말로 보완(→ `../toris/00-index.md`).
 - **진입 시점**을 박 분할로 지정(언제부터 떨기 시작하는가).
 
 ## 퇴성·추성·전성
@@ -41,5 +41,5 @@
 
 ### 교차참조
 허브 `../korean-creative-art-music.md` · 악기 주법 `../../instrument-idiom/korean/` ·
-텍스처 `sigimsae-texture.md` · 토리 거동 `../korean-regional-toris.md` · 서양 기보
+텍스처 `sigimsae-texture.md` · 토리 거동 `../toris/00-index.md` · 서양 기보
 `../../fundamentals/notation-and-conventions.md`

@@ -58,5 +58,5 @@
 
 ### 교차참조
 아쟁 `ajaeng.md`(같은 찰현, 저음) · 가야금 `gayageum.md`(농현 방식 대비) · 해금산조
-유파 `../../genres/sanjo/haegeum-sanjo.md` · 토리(농현) `../../genres/korean-regional-toris.md`
+유파 `../../genres/sanjo/haegeum-sanjo.md` · 토리(농현) `../../genres/toris/00-index.md`
 · 확장 주법 `extended-techniques.md` · 인덱스 `00-index.md`

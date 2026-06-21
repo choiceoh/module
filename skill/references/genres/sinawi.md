@@ -1,7 +1,7 @@
 # 시나위 — 즉흥 합주 (헤테로포니)
 
 > sojeongcompose 원본 문서(SJY051 CC BY 자료 아님). 국립국악원 국악사전·한국민족
-> 문화대백과 등에 근거. 산조는 `sanjo/00-index.md`, 토리는 `korean-regional-toris.md`,
+> 문화대백과 등에 근거. 산조는 `sanjo/00-index.md`, 토리는 `toris/00-index.md`,
 > 창작 적용은 `korean-creative-art-music.md`.
 
 ## 개요
@@ -38,6 +38,6 @@
 - ✗ 산조와 동일 — 시나위는 **합주 즉흥**, 산조는 거기서 나온 **독주 정형**.
 
 ### 교차참조
-산조 `sanjo/00-index.md` · 토리(육자배기) `korean-regional-toris.md` · 헤테로포니
+산조 `sanjo/00-index.md` · 토리(육자배기) `toris/00-index.md` · 헤테로포니
 텍스처 `creative-art-music/gugak-orchestration.md` · 통제된 즉흥 기보
 `creative-art-music/notation-for-players.md` · 전통 토대 `korean-traditional.md`
