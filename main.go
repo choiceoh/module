@@ -36,15 +36,13 @@ const maxIters = 8
 
 // 프런트엔드 → 백엔드 요청(원시 입력; 메시지/지식 구성은 백엔드가 함)
 type uiReq struct {
-	BaseURL    string `json:"baseUrl"`
-	APIKey     string `json:"apiKey"`
-	Model      string `json:"model"`
-	Instrument string `json:"instrument"`
-	Mode       string `json:"mode"`
-	Jangdan    string `json:"jangdan"`
-	Score      string `json:"score"`
-	Question   string `json:"question"`
-	Extra      string `json:"extra"`
+	BaseURL  string `json:"baseUrl"`
+	APIKey   string `json:"apiKey"`
+	Model    string `json:"model"`
+	Intent   string `json:"intent"` // 곡 특성·나타내려는 악상(작곡가 서술)
+	Score    string `json:"score"`  // MusicXML 요약(악기·조표·박자·음 나열)
+	Question string `json:"question"`
+	Extra    string `json:"extra"`
 }
 
 func main() {
@@ -114,17 +112,11 @@ func systemPrompt() string {
 
 func userPrompt(r uiReq) string {
 	var p []string
-	if r.Instrument != "" {
-		p = append(p, "악기: "+r.Instrument)
-	}
-	if r.Mode != "" {
-		p = append(p, "조: "+r.Mode)
-	}
-	if r.Jangdan != "" {
-		p = append(p, "장단: "+r.Jangdan)
+	if r.Intent != "" {
+		p = append(p, "곡 특성·나타내려는 악상(작곡가 서술): "+r.Intent)
 	}
 	if r.Score != "" {
-		p = append(p, "악보(MusicXML 요약):\n"+r.Score)
+		p = append(p, "악보(MusicXML 요약 — 악기·조표·박자는 여기서 읽어라):\n"+r.Score)
 	}
 	if r.Extra != "" {
 		p = append(p, "[사용자 추가 지식 — 우선 적용]\n"+r.Extra)
