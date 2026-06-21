@@ -100,6 +100,10 @@ The piece is largely composed but allows soloist freedom in ornamentation. Major
 
 Improvised ensemble music, originally accompanying shamanic ritual (*gut*, 굿). Each instrument improvises its own line over the same *jangdan* and *jo* — heterophonic rather than harmonic. The result is dense, layered, and ecstatic.
 
+> 시나위 **어법·편성·창작 적용**(헤테로포니·통제된 즉흥·청 이동) 상세: `sinawi.md`.
+> 정악(영산회상·수제천 — 만중삭 한배·연음 기법) 상세: `jeongak/00-index.md`.
+> 국악관현악 **편성·좌석 배치** 표준: `gugak-orchestra.md`.
+
 A modern *sinawi* ensemble typically includes *daegeum*, *piri*, *haegeum*, *ajaeng*, *gayageum*, *geomungo*, and *janggu*. The piece is structured by *jangdan* changes (similar to *sanjo*) but each instrument's part is freshly improvised.
 
 ## Nongak / Pungmul (농악 / 풍물)

@@ -19,6 +19,9 @@
 | **국악 지역별 어법(토리: 경기·메나리·육자배기·수심가·제주)·향토 색채** | `references/genres/korean-regional-toris.md` |
 | **산조 유파(전승 계보)별 어법(가야금·거문고·대금·해금·아쟁산조)** | `references/genres/sanjo/00-index.md` ★먼저 → 악기 파일 |
 | **민요 채보 예시(토리별 실제 곡 분석: 아리랑·도라지·진도·수심가·오돌또기)** | `references/genres/minyo/00-index.md` ★먼저 → 곡 파일 |
+| **정악(영산회상·수제천) 어법·연음(連音)** | `references/genres/jeongak/00-index.md` ★먼저 → 곡 파일 |
+| **시나위(즉흥 합주·헤테로포니·통제된 즉흥)** | `references/genres/sinawi.md` |
+| **국악관현악 편성·좌석 배치·악기 역할 표준** | `references/genres/gugak-orchestra.md` |
 | 전통 국악 토대(정악·민속·산조·시나위·시김새) | `references/genres/korean-traditional.md` |
 | 민속·전통 일반 / 월드 | `references/genres/folk-roots-and-traditions.md`, `references/genres/folk-and-world.md` |
 | 서양 예술음악 시대 양식(바로크~현대) | `references/genres/classical-periods.md` |
