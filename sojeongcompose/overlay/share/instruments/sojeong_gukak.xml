@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sojeongcompose — 국악기(Korean traditional instruments) 정의
+
+  MuseScore 하드 포크의 instruments.xml 에 병합하거나, MuseScore
+  Preferences → Score → "Instrument list" 에서 커스텀 목록으로 지정해 사용한다.
+
+  값 규칙(MuseScore instruments.xml):
+    - aPitchRange / pPitchRange : MIDI 번호 (예: 60 = 가온다/C4)
+    - clef : G(높은음자리), F(낮은음자리), PERC(타악기)
+    - musicXMLid : Finale 등과의 MusicXML 호환용 표준 sound id (근사값)
+    - <Channel><program> : Decent Sampler(조선 시리즈) VST 를 믹서에서 연결하기
+      전까지 쓰는 GM 폴백 음색 (0-based). VST 연결 후에는 무시된다.
+
+  ⚠ 음역(range)·이조는 유파/악기마다 달라 "합리적 근사값"이다.
+     프로 작곡가가 docs/instrument-ranges.md 기준으로 조정해 확정한다.
+-->
+<museScore version="4.40">
+  <InstrumentGroup id="sojeong-gukak">
+    <name>국악기 (Korean Traditional)</name>
+
+    <!-- ── 발현악기 (현을 뜯/튕김) ───────────────────────────── -->
+    <Instrument id="gayageum-sanjo">
+      <longName>가야금</longName>
+      <shortName>가야</shortName>
+      <trackName>Gayageum (Sanjo)</trackName>
+      <description>산조 가야금 · 12현 발현악기</description>
+      <musicXMLid>pluck.koto</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>43-69</aPitchRange>
+      <pPitchRange>41-74</pPitchRange>
+      <Channel><program value="107"/></Channel>
+    </Instrument>
+
+    <Instrument id="gayageum-jeongak">
+      <longName>정악가야금</longName>
+      <shortName>정가야</shortName>
+      <trackName>Gayageum (Jeongak)</trackName>
+      <description>정악 가야금 · 12현 발현악기</description>
+      <musicXMLid>pluck.koto</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>45-69</aPitchRange>
+      <pPitchRange>43-72</pPitchRange>
+      <Channel><program value="107"/></Channel>
+    </Instrument>
+
+    <Instrument id="geomungo">
+      <longName>거문고</longName>
+      <shortName>거문</shortName>
+      <trackName>Geomungo</trackName>
+      <description>6현 발현악기 · 술대로 연주</description>
+      <musicXMLid>pluck.shamisen</musicXMLid>
+      <clef>F</clef>
+      <aPitchRange>36-64</aPitchRange>
+      <pPitchRange>34-67</pPitchRange>
+      <Channel><program value="106"/></Channel>
+    </Instrument>
+
+    <Instrument id="yanggeum">
+      <longName>양금</longName>
+      <shortName>양금</shortName>
+      <trackName>Yanggeum</trackName>
+      <description>금속현 타현악기(덜시머)</description>
+      <musicXMLid>pluck.dulcimer</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>55-84</aPitchRange>
+      <pPitchRange>55-88</pPitchRange>
+      <Channel><program value="15"/></Channel>
+    </Instrument>
+
+    <!-- ── 찰현악기 (활로 켬) ──────────────────────────────── -->
+    <Instrument id="haegeum">
+      <longName>해금</longName>
+      <shortName>해금</shortName>
+      <trackName>Haegeum</trackName>
+      <description>2현 찰현악기 · 무현(無絃) 농현</description>
+      <musicXMLid>strings.fiddle</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>57-84</aPitchRange>
+      <pPitchRange>55-88</pPitchRange>
+      <Channel><program value="110"/></Channel>
+    </Instrument>
+
+    <Instrument id="ajaeng">
+      <longName>아쟁</longName>
+      <shortName>아쟁</shortName>
+      <trackName>Ajaeng</trackName>
+      <description>저음 찰현악기 · 활/개나리채</description>
+      <musicXMLid>strings.fiddle</musicXMLid>
+      <clef>F</clef>
+      <aPitchRange>36-64</aPitchRange>
+      <pPitchRange>34-67</pPitchRange>
+      <Channel><program value="110"/></Channel>
+    </Instrument>
+
+    <!-- ── 관악기 (불기) ───────────────────────────────────── -->
+    <Instrument id="daegeum">
+      <longName>대금</longName>
+      <shortName>대금</shortName>
+      <trackName>Daegeum</trackName>
+      <description>대형 횡적 · 청(갈대막) 울림</description>
+      <musicXMLid>wind.flutes.shakuhachi</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>58-84</aPitchRange>
+      <pPitchRange>57-88</pPitchRange>
+      <Channel><program value="77"/></Channel>
+    </Instrument>
+
+    <Instrument id="sogeum">
+      <longName>소금</longName>
+      <shortName>소금</shortName>
+      <trackName>Sogeum</trackName>
+      <description>소형 횡적 · 고음</description>
+      <musicXMLid>wind.flutes.flute</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>72-93</aPitchRange>
+      <pPitchRange>72-96</pPitchRange>
+      <Channel><program value="73"/></Channel>
+    </Instrument>
+
+    <Instrument id="piri">
+      <longName>피리</longName>
+      <shortName>피리</shortName>
+      <trackName>Piri (Hyang)</trackName>
+      <description>향피리 · 겹서(복황) 관악기</description>
+      <musicXMLid>wind.reed.oboe</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>57-79</aPitchRange>
+      <pPitchRange>55-82</pPitchRange>
+      <Channel><program value="68"/></Channel>
+    </Instrument>
+
+    <Instrument id="danso">
+      <longName>단소</longName>
+      <shortName>단소</shortName>
+      <trackName>Danso</trackName>
+      <description>세로 부는 단소 · 청아한 고음</description>
+      <musicXMLid>wind.flutes.shakuhachi</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>70-90</aPitchRange>
+      <pPitchRange>70-93</pPitchRange>
+      <Channel><program value="77"/></Channel>
+    </Instrument>
+
+    <Instrument id="taepyeongso">
+      <longName>태평소</longName>
+      <shortName>태평</shortName>
+      <trackName>Taepyeongso</trackName>
+      <description>겹서 원추관 · 큰 음량(날라리/호적)</description>
+      <musicXMLid>wind.reed.oboe</musicXMLid>
+      <clef>G</clef>
+      <aPitchRange>58-81</aPitchRange>
+      <pPitchRange>57-84</pPitchRange>
+      <Channel><program value="111"/></Channel>
+    </Instrument>
+
+    <!-- ── 타악기 (장단/리듬) ──────────────────────────────── -->
+    <!-- 장단 입력은 plugins/jangdan QML 플러그인과 함께 사용한다.
+         완전한 드럼셋(덩·쿵·덕·기덕 매핑)은 docs/jangdan.md 기준으로
+         후속 단계에서 useDrumset/Drumset 으로 확장한다. -->
+    <Instrument id="janggu">
+      <longName>장구</longName>
+      <shortName>장구</shortName>
+      <trackName>Janggu</trackName>
+      <description>모래시계형 양면 타악기 · 장단의 중심</description>
+      <musicXMLid>drum.korean.janggu</musicXMLid>
+      <clef>PERC</clef>
+      <Channel><program value="116"/></Channel>
+    </Instrument>
+
+    <Instrument id="buk">
+      <longName>북</longName>
+      <shortName>북</shortName>
+      <trackName>Buk</trackName>
+      <description>통북/소리북 · 양면 원통 타악기</description>
+      <musicXMLid>drum.korean.buk</musicXMLid>
+      <clef>PERC</clef>
+      <Channel><program value="117"/></Channel>
+    </Instrument>
+
+    <Instrument id="kkwaenggwari">
+      <longName>꽹과리</longName>
+      <shortName>꽹과</shortName>
+      <trackName>Kkwaenggwari</trackName>
+      <description>작은 징 · 사물놀이 리더</description>
+      <musicXMLid>metal.gong</musicXMLid>
+      <clef>PERC</clef>
+      <Channel><program value="112"/></Channel>
+    </Instrument>
+
+    <Instrument id="jing">
+      <longName>징</longName>
+      <shortName>징</shortName>
+      <trackName>Jing</trackName>
+      <description>큰 징 · 긴 여운</description>
+      <musicXMLid>metal.gong</musicXMLid>
+      <clef>PERC</clef>
+      <Channel><program value="55"/></Channel>
+    </Instrument>
+
+  </InstrumentGroup>
+</museScore>
