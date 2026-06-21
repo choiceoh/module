@@ -164,6 +164,9 @@ Sad, lamenting, expressive. The mode of *pansori*'s most affecting passages, muc
 
 When composing a Korean traditional-adjacent piece, identifying which regional mode or practice you are emulating matters as much as picking *gyemyeonjo* vs. *pyeongjo* in the abstract.
 
+> 토리(지역 선법권)별 구성음·떠는음/꺾는음·종지·정서·**창작 처방**은 별도 실전
+> 문서로: `korean-regional-toris.md` (경기·메나리·육자배기·수심가·제주 + 풍물 지역 가락).
+
 ## Sigimsae (시김새) — ornamentation
 
 The ornamental pitch inflections that animate Korean traditional melody. Specific named ornaments include:
