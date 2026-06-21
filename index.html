@@ -34,6 +34,8 @@
   .setbox > summary { font-weight:600; color:var(--mut); font-size:13px; list-style:none; }
   .setbox[open] > summary { margin-bottom:8px; }
   .err { color:#c33; }
+  .score { background:#fff; margin:12px 0; overflow-x:auto; }
+  .score svg { max-width:100%; height:auto; }
 </style>
 </head>
 <body>
@@ -67,7 +69,7 @@
   <fieldset>
     <legend>2. 질문</legend>
     <textarea id="question" rows="3" placeholder="예) 이 도입부 다음에 이어질 8마디 선율 아이디어 3개 줘. 계면조 느낌 살려서, 해금 음역 안에서."></textarea>
-    <p class="muted">✓ 작곡 지식(화성·선율·형식·국악 등)이 앱에 들어 있어, <b>AI가 질문에 맞는 문서를 직접 찾아 읽고</b> 답합니다(붙여넣기 불필요).</p>
+    <p class="muted">✓ 작곡 지식(화성·선율·형식·국악 등)이 앱에 들어 있어, <b>AI가 질문에 맞는 문서를 직접 찾아 읽고</b> 답합니다(붙여넣기 불필요). 필요하면 <b>악보(오선보)</b>도 함께 그려줍니다.</p>
     <details style="margin-top:4px">
       <summary>추가 지식 붙여넣기 (선택 — 내장 지식 외에 더 넣고 싶을 때만)</summary>
       <textarea id="extra" rows="3" placeholder="필요 시에만. 비워두면 내장 지식이 자동 적용됩니다."></textarea>
@@ -85,6 +87,7 @@
 </main>
 
 
+<script src="/abcjs.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const STEP_SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
@@ -210,6 +213,30 @@ function parseMusicXml(xml){
   return { head, summary, partNames, time };
 }
 
+// ---- 응답 렌더 (텍스트 + ```abc 악보를 오선보로) ----
+function proseNode(t){ const s=document.createElement("span"); s.style.whiteSpace="pre-wrap"; s.textContent=t; return s; }
+function renderResponse(content){
+  const out=$("out"); out.className=""; out.textContent="";
+  if(!content){ out.textContent="(빈 응답)"; return; }
+  const re=/```abc\s*\n?([\s\S]*?)```/gi;
+  let last=0, m;
+  while((m=re.exec(content))){
+    if(m.index>last) out.appendChild(proseNode(content.slice(last,m.index)));
+    const abc=m[1].trim();
+    const wrap=document.createElement("div"); wrap.className="score"; out.appendChild(wrap);
+    try{
+      if(!window.ABCJS) throw new Error("renderer not loaded");
+      ABCJS.renderAbc(wrap, abc, {responsive:"resize"});
+      if(!wrap.querySelector("svg")) throw new Error("no score");
+    }catch(e){ // 렌더 실패 시 원본 ABC를 글자로
+      wrap.className=""; const pre=document.createElement("pre");
+      pre.style.whiteSpace="pre-wrap"; pre.textContent=abc; wrap.appendChild(pre);
+    }
+    last=re.lastIndex;
+  }
+  if(last<content.length) out.appendChild(proseNode(content.slice(last)));
+}
+
 // ---- API 호출 (백엔드 에이전트 루프) ----
 async function callAI(){
   saveCfg();
@@ -225,7 +252,7 @@ async function callAI(){
         question:$("question").value, extra:$("extra").value }) });
     const data=await res.json();
     if(data.error){ throw new Error(data.error); }
-    $("out").textContent=data.content||"(빈 응답)";
+    renderResponse(data.content||"");
     setStatus("완료"+(data.docs&&data.docs.length?(" · 참고문서 "+data.docs.length+"개: "+data.docs.join(", ")):""));
   }catch(e){
     $("out").innerHTML='<span class="err">오류: '+e.message+'</span>';

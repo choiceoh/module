@@ -35,6 +35,7 @@
 | 악기 이디엄(서양 현/관/성악 — 국악기는 위 korean/ 우선) | `references/instrument-idiom/overview.md`, `references/instrument-idiom/strings.md`, `references/instrument-idiom/winds.md`, `references/instrument-idiom/vocals.md` |
 | 20세기·현대 기법 / 미분음 / 주제와 변주 / 제약·불확정성 / 알고리즘 | `references/techniques/20th-century-techniques.md`, `references/techniques/microtonal.md`, `references/techniques/theme-and-variation.md`, `references/techniques/constraint-based-composition.md`, `references/techniques/algorithmic-and-AI-assisted.md` |
 | 음정·음계·기보 기초 / 가사·운율 | `references/fundamentals/pitch-intervals-scales.md`, `references/fundamentals/notation-and-conventions.md`, `references/fundamentals/prosody-and-language.md` |
+| **악보 출력(ABC)·이명동음(플랫/샵) 표기 규율** | `references/fundamentals/score-output-and-enharmonic-spelling.md` |
 | 피드백·수정 루프·협업 방식 | `references/creative-workflows/revision-and-feedback-loops.md`, `references/creative-workflows/musical-brainstorming.md`, `references/creative-workflows/answer-calibration.md`, `references/creative-workflows/user-agent-collaboration.md` |
 | 교육·워크플로·참고문헌 | `references/teaching-composition.md`, `references/workflow.md`, `references/source-bibliography.md` |
 

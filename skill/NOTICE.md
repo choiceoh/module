@@ -23,7 +23,13 @@
   페이지 + 인덱스.
 - `references/genres/sinawi.md` — 시나위(즉흥 합주·헤테로포니·통제된 즉흥) 어법.
 - `references/genres/gugak-orchestra.md` — 국악관현악 편성·좌석 배치·악기 역할 표준.
+- `references/fundamentals/score-output-and-enharmonic-spelling.md` — ABC 악보 출력
+  형식·이명동음(플랫/샵) 표기 규율.
 - `references/00-navigation.md` — 창작국악 특화 큐레이션 라우터로 전면 재작성.
+
+## 제3자 라이브러리
+- 악보 렌더링: **abcjs** v6.4.4 (https://abcjs.net), **MIT License**. `abcjs-basic-min.js`
+  를 그대로 번들(라이선스 배너 보존). ```abc 코드블록을 브라우저에서 오선보로 렌더.
 
 ## 큐레이션 (무관 문서 제거)
 이 포크는 **예술음악으로서의 창작국악** 작곡 보조에 맞춰, SJY051 원본 중

@@ -27,6 +27,9 @@ import (
 //go:embed index.html
 var indexHTML []byte
 
+//go:embed abcjs-basic-min.js
+var abcjsJS []byte
+
 //go:embed all:skill
 var skillFS embed.FS
 
@@ -54,6 +57,11 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(indexHTML)
+	})
+	mux.HandleFunc("/abcjs.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "max-age=86400")
+		w.Write(abcjsJS)
 	})
 	mux.HandleFunc("/api/chat", handleChat)
 
@@ -105,6 +113,18 @@ func systemPrompt() string {
 	b.WriteString("references/instrument-idiom/korean/00-index.md 와 해당 악기 문서를 읽어\n")
 	b.WriteString("발음 수단(가야금=맨손가락/거문고=술대/해금·아쟁=활/대금=입김)과 농현 방식을 확인하라.\n")
 	b.WriteString("예: 가야금은 술대를 쓰지 않는다(술대는 거문고 전용). 추측으로 주법을 지어내지 마라.\n\n")
+	b.WriteString("악보 출력: 구체적인 선율·화성·진행을 제안할 때는 말로만 하지 말고 ABC 표기로\n")
+	b.WriteString("악보를 함께 그려라. ```abc 코드블록에 넣으면 화면에 오선보로 렌더된다(반드시 그 블록 사용).\n")
+	b.WriteString("ABC 형식: 헤더 X:1 / M:박자(예 3/4) / L:기본음길이(예 1/8) / K:조표(예 K:Gm, K:D)\n")
+	b.WriteString("를 먼저 쓰고 다음 줄에 음표. 음높이는 C D E F G A B(가온음역)·c d e(한 옥타브 위)·\n")
+	b.WriteString("C,(한 옥타브 아래), 임시표는 ^(샵)·_(플랫)·=(제자리), 마디는 |, 여러 성부는 V:1 V:2.\n")
+	b.WriteString("한 번에 2~8마디로 짧게. 헤더(X·M·L·K)를 빠뜨리면 렌더가 깨진다.\n")
+	b.WriteString("이명동음(enharmonic) 표기 규율: 한 악구 안에서 플랫과 샵을 섞지 마라. 플랫 계열\n")
+	b.WriteString("조·맥락이면 플랫(_)으로, 샵 계열이면 샵(^)으로 일관되게 적고, 조표(K:)와 어긋나지 않게.\n")
+	b.WriteString("음정 철자도 바르게(증2도 vs 단3도 등). 헷갈리면\n")
+	b.WriteString("assets/scale-degree-spelling-cheatsheet.md·assets/chord-symbol-conventions.md 를 읽어라.\n")
+	b.WriteString("국악 시김새(농현·꺾음·미분음)는 평균율 ABC로 다 못 담는다 — 골격만 악보로 그리고\n")
+	b.WriteString("시김새는 글로 지시하라(예: 'A음에 넓고 느린 농현', '도→시 꺾음').\n\n")
 	b.WriteString("당신에게는 작곡 스킬 문서를 읽는 read_doc(path) 도구가 있습니다.\n")
 	b.WriteString("먼저 references/00-navigation.md 를 읽어 어떤 문서가 필요한지 판단하고,\n")
 	b.WriteString("질문에 직접 관련된 문서 1~3개만 읽은 뒤, 그 가이드에 근거해 답하세요\n")
