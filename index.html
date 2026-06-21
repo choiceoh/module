@@ -58,9 +58,9 @@
       <div><label>조</label><input id="mode" type="text" placeholder="평조 / 계면조"></div>
       <div><label>장단</label><input id="jangdan" type="text" placeholder="굿거리 / 자진모리 …"></div>
     </div>
-    <label>Finale에서 내보낸 MusicXML 파일 (.xml)</label>
+    <label>Finale에서 내보낸 MusicXML 파일 (.xml / .mxl)</label>
     <div id="drop" class="drop">여기로 파일을 끌어다 놓거나 클릭해서 선택<br>
-      <span class="muted">⚠ Finale의 <b>.musx</b>는 안 됨 → Finale: <b>파일 → MusicXML 내보내기</b>(압축 안 함)로 <b>.xml</b> 만들어 넣기</span></div>
+      <span class="muted">⚠ Finale의 <b>.musx</b>는 안 됨 → <b>파일 → MusicXML 내보내기</b>로 <b>.xml</b> 또는 <b>.mxl</b>(압축) 만들어 넣기</span></div>
     <input id="file" type="file" accept=".xml,.musicxml,.mxl" style="display:none">
     <div id="fileInfo" class="muted"></div>
   </fieldset>
@@ -6888,25 +6888,67 @@ drop.ondragleave=()=>drop.classList.remove("hl");
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove("hl"); if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);};
 fileInput.onchange=()=>{ if(fileInput.files[0]) readFile(fileInput.files[0]); };
 
-function readFile(file){
+async function readFile(file){
   const nm=file.name.toLowerCase();
   if(/\.(musx|mus)$/.test(nm)){
-    $("fileInfo").innerHTML='<span class="err">.musx 는 <b>Finale 전용 파일</b>이라 직접 못 읽어요. Finale에서 <b>파일 → MusicXML 내보내기</b>(압축 안 함) 해서 생긴 <b>.xml</b>을 넣으세요.</span>';
+    $("fileInfo").innerHTML='<span class="err">.musx 는 <b>Finale 전용 파일</b>이라 직접 못 읽어요. Finale에서 <b>파일 → MusicXML 내보내기</b>로 <b>.xml</b> 또는 <b>.mxl</b>을 만들어 넣으세요.</span>';
     parsedSummary=""; return;
   }
-  if(/\.mxl$/.test(nm)){
-    $("fileInfo").innerHTML='<span class="err">압축 MusicXML(.mxl)은 미지원 — Finale에서 "압축 안 함" MusicXML(.xml)로 내보내세요.</span>';
-    parsedSummary=""; return;
+  try{
+    let xmlText;
+    if(/\.mxl$/.test(nm)){
+      $("fileInfo").textContent="압축(.mxl) 해제 중…";
+      xmlText = await extractMxl(await file.arrayBuffer());
+    } else if(/\.(xml|musicxml)$/.test(nm)){
+      xmlText = await file.text();
+    } else {
+      $("fileInfo").innerHTML='<span class="err">MusicXML(.xml 또는 .mxl) 파일이 필요합니다. (Finale의 .musx는 MusicXML로 내보내기)</span>';
+      parsedSummary=""; return;
+    }
+    const s=parseMusicXml(xmlText); parsedSummary=s.summary;
+    $("fileInfo").textContent="✓ "+file.name+"\n"+s.head;
+  }catch(err){
+    parsedSummary=""; $("fileInfo").innerHTML='<span class="err">처리 실패: '+err.message+'</span>';
   }
-  if(!/\.(xml|musicxml)$/.test(nm)){
-    $("fileInfo").innerHTML='<span class="err">MusicXML(.xml) 파일이 필요합니다. (Finale의 .musx는 MusicXML로 내보내기)</span>';
-    parsedSummary=""; return;
+}
+
+// .mxl(압축 MusicXML = ZIP) → 내부 MusicXML 텍스트. 외부 라이브러리 없이
+// ZIP 구조를 직접 파싱하고 브라우저 내장 DecompressionStream(deflate-raw)으로 해제.
+async function extractMxl(buf){
+  const dv=new DataView(buf), bytes=new Uint8Array(buf), td=new TextDecoder();
+  // EOCD(End Of Central Directory) 찾기
+  let eocd=-1;
+  for(let i=buf.byteLength-22;i>=0;i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) throw new Error(".mxl(ZIP) 구조를 찾지 못함");
+  const count=dv.getUint16(eocd+10,true), cdOff=dv.getUint32(eocd+16,true);
+  const entries=[]; let p=cdOff;
+  for(let i=0;i<count;i++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), compSize=dv.getUint32(p+20,true);
+    const nLen=dv.getUint16(p+28,true), eLen=dv.getUint16(p+30,true), cLen=dv.getUint16(p+32,true);
+    const lOff=dv.getUint32(p+42,true);
+    const name=td.decode(bytes.subarray(p+46,p+46+nLen));
+    entries.push({name,method,compSize,lOff});
+    p+=46+nLen+eLen+cLen;
   }
-  const r=new FileReader();
-  r.onload=()=>{ try{ const s=parseMusicXml(r.result); parsedSummary=s.summary;
-      $("fileInfo").textContent="✓ "+file.name+"\n"+s.head; }
-    catch(err){ parsedSummary=""; $("fileInfo").innerHTML='<span class="err">파싱 실패: '+err.message+'</span>'; } };
-  r.readAsText(file);
+  const read=async(e)=>{
+    if(dv.getUint32(e.lOff,true)!==0x04034b50) throw new Error("ZIP 로컬 헤더 오류");
+    const nLen=dv.getUint16(e.lOff+26,true), eLen=dv.getUint16(e.lOff+28,true);
+    const start=e.lOff+30+nLen+eLen, comp=bytes.subarray(start,start+e.compSize);
+    if(e.method===0) return td.decode(comp);
+    if(e.method===8){
+      const s=new Blob([comp]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return td.decode(await new Response(s).arrayBuffer());
+    }
+    throw new Error("지원하지 않는 압축 방식("+e.method+")");
+  };
+  // META-INF/container.xml 의 rootfile 우선, 없으면 첫 .xml
+  let target=null;
+  const cont=entries.find(e=>e.name==="META-INF/container.xml");
+  if(cont){ const m=(await read(cont)).match(/full-path\s*=\s*"([^"]+)"/); if(m) target=entries.find(e=>e.name===m[1]); }
+  if(!target) target=entries.find(e=>!e.name.startsWith("META-INF/")&&/\.(xml|musicxml)$/i.test(e.name));
+  if(!target) throw new Error(".mxl 안에서 MusicXML을 찾지 못함");
+  return await read(target);
 }
 
 // ---- MusicXML → 요약 ----
