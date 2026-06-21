@@ -7,13 +7,18 @@
 
 ## sojeongcompose 원본 추가분 (SJY051 자료 아님)
 다음은 sojeongcompose가 공개된 학술·사전 정보를 근거로 직접 조사·작성한 원본입니다:
-- `references/genres/korean-creative-art-music.md` — 예술음악으로서의 창작국악
-  작곡 실전 지침.
+- `references/genres/korean-creative-art-music.md` (+ `references/genres/creative-art-music/`)
+  — 예술음악으로서의 창작국악 작곡 실전 지침. 허브 + 상세 7개(선법 화성·시김새
+  텍스처·장단 형식·국악관현악·기보·진단·계보미학).
 - `references/instrument-idiom/korean/` — 국악기 15종 주법·특성 개별 문서
   (가야금·거문고·해금·아쟁·양금·대금·소금·단소·피리·태평소·생황·장구·북·
   사물금속·성악) + 인덱스. 발음 수단·농현 방식·음역 등 사실관계 정리.
 - `references/genres/korean-regional-toris.md` — 국악 지역별 어법(토리: 경기·메나리·
   육자배기·수심가·제주 + 풍물 지역 가락) 작곡 실전 지침.
+- `references/genres/sanjo/` — 산조 유파(전승 계보)별 어법, 악기별 개별 페이지
+  (가야금·거문고·대금·해금·아쟁·피리산조) + 인덱스.
+- `references/genres/minyo/` — 토리별 민요 채보 예시, 곡별 개별 페이지(본조아리랑·
+  도라지타령·정선아리랑·진도아리랑·수심가·오돌또기) + 인덱스.
 - `references/00-navigation.md` — 창작국악 특화 큐레이션 라우터로 전면 재작성.
 
 ## 큐레이션 (무관 문서 제거)

@@ -93,6 +93,9 @@ A solo instrumental form (1890s onward), typically *gayageum sanjo*, *geomungo s
 
 The piece is largely composed but allows soloist freedom in ornamentation. Major founders/schools: Kim Chang-jo (김창조, founder of gayageum sanjo), Baek Nak-jun (백낙준, geomungo), Han Beom-su (한범수, haegeum), and many others — each lineage has distinctive *seonyul* (선율, melodic content).
 
+> 산조 **유파(전승 계보)별 상세 어법**은 악기별 개별 페이지로: `sanjo/00-index.md`
+> (가야금·거문고·대금·해금·아쟁산조). 토리별 **민요 채보 예시**는 `minyo/00-index.md`.
+
 ## Sinawi (시나위)
 
 Improvised ensemble music, originally accompanying shamanic ritual (*gut*, 굿). Each instrument improvises its own line over the same *jangdan* and *jo* — heterophonic rather than harmonic. The result is dense, layered, and ecstatic.
