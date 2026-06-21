@@ -33,7 +33,7 @@ var abcjsJS []byte
 //go:embed all:skill
 var skillFS embed.FS
 
-var httpClient = &http.Client{Timeout: 180 * time.Second}
+var httpClient = &http.Client{Timeout: 300 * time.Second}
 
 const maxIters = 8
 
@@ -213,12 +213,19 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 
 	for i := 0; i < maxIters; i++ {
 		body, _ := json.Marshal(map[string]any{
-			"model": req.Model, "temperature": 0.8,
+			"model": req.Model, "temperature": 0.8, "max_tokens": 4000,
 			"messages": messages, "tools": tools, "tool_choice": "auto",
 		})
 		respBytes, status, err := callProvider(req, body)
 		if err != nil {
-			writeJSON(w, map[string]any{"error": "공급자 호출 실패: " + err.Error()})
+			msg := err.Error()
+			hint := ""
+			if strings.Contains(msg, "deadline") || strings.Contains(strings.ToLower(msg), "timeout") {
+				hint = "\n\n응답이 너무 느려 시간이 초과됐습니다. ① 잠시 후 다시 시도, ② 질문을 더 좁게, " +
+					"③ Base URL 엔드포인트가 맞는지 확인하세요(예: https://api.z.ai/api/paas/v4). " +
+					"공급자가 혼잡하거나 모델이 매우 길게 답하는 경우 발생할 수 있습니다."
+			}
+			writeJSON(w, map[string]any{"error": "공급자 호출 실패: " + msg + hint})
 			return
 		}
 		var pr provResp
