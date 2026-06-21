@@ -54,11 +54,12 @@
   </details>
 
   <fieldset>
-    <legend>1. 곡 정보 + Finale 파일</legend>
+    <legend>1. Finale 파일 (+ 선택 입력)</legend>
+    <p class="muted" style="margin:0 0 8px">아래 칸은 모두 <b>선택</b>입니다. 파일을 넣으면 악기·조표·박자를 AI가 알아서 읽고, 조/장단은 비워두면 악보에서 추론합니다.</p>
     <div class="row">
-      <div><label>악기</label><input id="instrument" type="text" placeholder="해금 / 가야금 …"></div>
-      <div><label>조</label><input id="mode" type="text" placeholder="평조 / 계면조"></div>
-      <div><label>장단</label><input id="jangdan" type="text" placeholder="굿거리 / 자진모리 …"></div>
+      <div><label>악기 <span class="muted">(파일에서 자동)</span></label><input id="instrument" type="text" placeholder="파일 넣으면 자동 채움"></div>
+      <div><label>조 <span class="muted">(선택)</span></label><input id="mode" type="text" placeholder="평조/계면조 — 비우면 AI 추론"></div>
+      <div><label>장단 <span class="muted">(선택)</span></label><input id="jangdan" type="text" placeholder="굿거리/자진모리 (선택)"></div>
     </div>
     <label>Finale에서 내보낸 MusicXML 파일 (.xml / .mxl)</label>
     <div id="drop" class="drop">여기로 파일을 끌어다 놓거나 클릭해서 선택<br>
@@ -129,6 +130,8 @@ async function readFile(file){
       parsedSummary=""; return;
     }
     const s=parseMusicXml(xmlText); parsedSummary=s.summary;
+    // 악기는 파일에서 자동 채움(비어 있을 때만 — 사용자가 적은 값은 보존)
+    if(!$("instrument").value && s.partNames && s.partNames.length){ $("instrument").value=s.partNames.join(", "); saveCfg(); }
     $("fileInfo").textContent="✓ "+file.name+"\n"+s.head;
   }catch(err){
     parsedSummary=""; $("fileInfo").innerHTML='<span class="err">처리 실패: '+err.message+'</span>';
@@ -184,8 +187,8 @@ function parseMusicXml(xml){
   if(doc.getElementsByTagName("parsererror").length) throw new Error("올바른 XML이 아닙니다");
   const title = txt(doc.documentElement,"movement-title")||txt(doc.documentElement,"work-title")||"(제목없음)";
   // 파트 이름
-  const names={}; const sp=doc.getElementsByTagName("score-part");
-  for(const p of sp){ names[p.getAttribute("id")]=txt(p,"part-name")||p.getAttribute("id"); }
+  const names={}; const partNames=[]; const sp=doc.getElementsByTagName("score-part");
+  for(const p of sp){ const nm=(txt(p,"part-name")||p.getAttribute("id")||"").trim(); names[p.getAttribute("id")]=nm; if(nm) partNames.push(nm); }
   // 조표/박자(첫 마디)
   let key="", time="";
   const fifths=doc.getElementsByTagName("fifths")[0]; if(fifths) key="fifths="+fifths.textContent;
@@ -207,9 +210,10 @@ function parseMusicXml(xml){
     const shown=seq.slice(0,400);
     lines.push("["+(names[id]||id)+"] ("+seq.length+"음) "+shown.join(" "));
   }
-  const head="제목: "+title+(key?" · "+key:"")+(time?" · "+time:"")+" · 파트 "+parts.length+"개";
+  const head="제목: "+title+(key?" · "+key:"")+(time?" · "+time:"")
+    +(partNames.length?" · 악기: "+partNames.join(", "):" · 파트 "+parts.length+"개");
   const summary=head+"\n"+lines.join("\n");
-  return { head, summary };
+  return { head, summary, partNames, time };
 }
 
 // ---- API 호출 (백엔드 에이전트 루프) ----
