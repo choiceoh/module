@@ -42,3 +42,21 @@ grep -RIn "MuseScore" src/appshell | head
 
 - About 화면에 "Based on MuseScore Studio (GPL-3.0)" 고지와 소스 위치를 명시.
 - 본 저장소의 오버레이/플러그인/문서도 배포 시 GPL-3.0 을 따른다.
+
+## 6. 첫 실행 기본값 (Finale 사용감 · 생산성)
+
+포크가 **첫 실행부터** 다음 기본값을 갖도록 factory default(앱 기본 설정)를 조정.
+관련 자산: `presets/shortcuts/finale-like.xml`, `docs/finale-to-sojeong.md`,
+`templates/spec.md`.
+
+- **언어 = 한국어(ko)**: 기본 UI 언어를 ko 로. (MuseScore 한글 번역 내장)
+- **음표 입력 = "Input by Duration"**(MuseScore 4.5+): Finale Speedy 유사 모드를
+  기본 입력 방식으로. + MIDI 입력 활성화.
+- **단축키 = Finale식 프리셋**: `finale-like.xml` 을 기본 `shortcuts.xml` 로 동봉
+  (config 폴더에 자동 배치되거나 factory default 로 컴파일).
+- **기본 템플릿 = 국악 편성**: `share/templates` 의 국악 템플릿(`templates/spec.md`)
+  을 새 악보 마법사 상단에 노출.
+- **실시간 미리듣기 on**, 자동 저장 on 등 합리적 기본값.
+
+> 설정 위치(버전별 상이): 언어/입력/단축키 factory default 는 업스트림 소스의
+> appshell/preferences 영역과 기본 리소스에서 조정한다. 빌드에서 확인 후 확정.

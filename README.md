@@ -46,7 +46,12 @@ Finale로 작업하던 국악 작곡가가, 오선보 기반 위에서 **국악�
 ├── docs/
 │   ├── decent-sampler-josun.md       # 조선 시리즈(Decent Sampler) VST 연동 가이드
 │   ├── instrument-ranges.md          # 국악기 음역/이조 확정용 레퍼런스
-│   └── jangdan.md                    # 장단 드럼셋 매핑(덩·쿵·덕·기덕…) 설계
+│   ├── jangdan.md                    # 장단 드럼셋 매핑(덩·쿵·덕·기덕…) 설계
+│   └── finale-to-sojeong.md          # Finale 사용자 적응 치트시트(단축키·워크플로)
+├── presets/
+│   └── shortcuts/                    # Finale식 단축키 프리셋(finale-like.xml)
+├── templates/
+│   └── spec.md                       # 국악 편성·장단·음색 템플릿 사양(빌드 후 .mscz 작성)
 └── scripts/
     ├── bootstrap.sh                  # 업스트림 클론 + 태그 고정 + 오버레이 적용 (mac/Linux)
     └── bootstrap.ps1                 # 동일 (Windows)
@@ -116,6 +121,10 @@ cmake --build build -j
 - **M2 — 조선 시리즈 재생**: 믹서에서 국악기↔Decent Sampler VST3 매핑 가이드/프리셋.
 - **M3 — 장단**: `plugins/jangdan` QML 플러그인(장단 패턴 삽입) + 장구/북 드럼셋 매핑.
 - **M4 — 브랜딩**: 앱 이름·아이콘·기본 템플릿을 sojeongcompose 로([`branding/`]).
+- **M-UX — Finale 사용감 + 더 쉬움**: 첫 실행 기본값을 한글 UI·Finale 유사
+  입력("Input by Duration")·Finale식 단축키([`presets/shortcuts/`])로. 국악
+  편성 템플릿([`templates/spec.md`])으로 즉시 작곡. 적응 안내
+  [`docs/finale-to-sojeong.md`].
 - **M5 (확장)**: 율명 표기 옵션, 시김새(농현 등) 입력/재생 표현, 정간보 뷰.
 
 ---
