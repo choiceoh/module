@@ -64,7 +64,7 @@ go build -o sojeongcompose .          # 현재 OS용
 - 브라우저가 API를 **직접 호출**한다. 일부 공급자는 **CORS**로 막으므로, 그럴 땐
   CORS 허용 공급자(OpenRouter 등)나 **로컬 모델(Ollama)** 을 쓴다.
 - 내장 지식 때문에 `index.html`이 ~410KB. 요청당 토큰은 선별·상한으로 관리(저가 모델 권장).
-- 압축 MusicXML(.mxl)·MIDI는 아직 미지원(우선 `.xml`).
+- MusicXML은 `.xml`과 **압축 `.mxl` 모두 지원**(브라우저 내장 해제, 외부 의존성 0). MIDI(.mid)는 아직 미지원.
 
 ## 라이선스 / 출처
 
