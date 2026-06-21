@@ -151,7 +151,7 @@ Korean traditional music uses several modal systems (*jo*, 조). The two most im
 
 ### Pyeongjo (평조)
 
-Roughly analogous to a major-pentatonic color, but with characteristic ornamentation, intonation, and register practice. For composition-facing sketches, think ^1, ^2, ^3, ^5, ^6 while remembering that Korean pitch-name systems such as *hwangjong* (황종) are not simply fixed Western concert pitches.
+In court music (정악) and 경토리 folk, *pyeongjo* is built on **sol** (솔선법): the pentatonic **솔-라-도-레-미**, i.e. **^1, ^2, ^4, ^5, ^6** relative to sol (major-2nd + minor-3rd) — *not* the Western major pentatonic (do-re-mi-sol-la). **Caution — the term is repertoire-dependent:** in *pansori*/*sanjo* theory *pyeongjo* instead denotes **레-미-솔-라-도** (a calmer, subdued mode), while **솔-라-도-레-미** is there called ***ujo*** (우조). So name the repertoire before applying a pitch formula. (Korean pitch-name systems such as *hwangjong* (황종) are not simply fixed Western concert pitches.)
 
 Bright, balanced, often festive feel. Used in court music and brighter folk.
 
@@ -163,7 +163,7 @@ Sad, lamenting, expressive. The mode of *pansori*'s most affecting passages, muc
 
 ### Other modes
 
-*Ujo* (우조) is associated with brighter, masculine character (often a transposed *pyeongjo* variant). Various regional folk traditions have their own modal preferences:
+*Ujo* (우조) shares pyeongjo's sol-based pentatonic skeleton but is treated as a distinct *jo* — differing in pitch-level/register and ethos (brighter, bolder; in sanjo it can denote a higher, brighter register) rather than simply a transposed pyeongjo. Various regional folk traditions have their own modal preferences:
 - *Gyeonggi minyo* (Seoul region): bright, often *pyeongjo*-derived
 - *Namdo minyo* (southern, Jeolla): rich *gyemyeonjo*, melismatic, intense
 - *Seodo minyo* (northwestern): plaintive, semi-Phrygian feel
@@ -181,8 +181,7 @@ The ornamental pitch inflections that animate Korean traditional melody. Specifi
 - *Chuseong* (추성): a pitch-raising slide or upward inflection
 - *Toeseong* (퇴성): a pitch-falling or downward-releasing inflection
 - *Yoseong* (요성): a vibrating or wavering inflection; often wider and more structural than Western vibrato
-- *Jeonseong* (전성): a turning/ornamental inflection
-- *Goldoreum* (골도름): a fast trill-like figure
+- *Jeonseong* (전성): a rolling/flicking ornament (e.g. the left hand rolls the tone to decorate it)
 
 Different instruments have different idiomatic *sigimsae*. *Gayageum* uses left-hand string pulls; *daegeum* uses fingering and embouchure; *haegeum* uses bow pressure and finger position; the human voice has the widest palette. *Sigimsae* is the primary expressive vocabulary — playing the bare skeletal pitches without *sigimsae* sounds dead.
 
