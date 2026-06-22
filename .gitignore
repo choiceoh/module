@@ -5,3 +5,4 @@ sojeongcompose-windows-*
 sojeongcompose-macos-*
 sojeongcompose-linux-*
 *.exe
+node_modules/

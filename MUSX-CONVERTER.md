@@ -69,14 +69,29 @@ MusicXML/EnigmaXML 내려받기.
 > 디코딩 상수·바이트 연산은 위 MIT 구현들에서 byte 단위로 교차검증했다. 어떤 MakeMusic
 > 독점 소스도 포함하지 않으며, 사용자 본인 파일을 **읽기만** 한다(복제 변조 없음).
 
+## 검증 (실제 `.musx`로 확인 완료)
+`rpatters1/musxdom`의 실제 테스트 자산(`.musx` + 레퍼런스 `.enigmaxml` 95쌍, 96개 샘플)으로
+`tools/validate-musx.cjs`로 검증:
+- **디코딩: 95쌍 중 91개가 레퍼런스와 byte 단위 완전 일치**(나머지 4개는 버전 마이그레이션
+  `<mappings>` 차이로 추정, 디코드 오류 0). → 1단계 디코드 알고리즘이 실파일에서 증명됨.
+- **변환: 96개 샘플 전부 오류 0·빈 마디 0.**
+- **옥타브 기준 확정**: musxdom 의 `calcNoteProperties` 테스트(`enharmonic_unlinked`→oct4,
+  `hidden_keysigs`→oct5)와 대조해 **C4=가온다** 확인.
+- **이조악기 동작 주의**: 변환기는 **콘서트(실음) 피치**를 낸다(Finale 표기음 아님). 분석엔
+  유용하나, 표기음(이조)이 필요하면 staffSpec 이조값 적용이 추가로 필요(미구현).
+
 ## 상태
-- ✅ 1단계 디코딩 — 구현. **실제 `.musx`로 EnigmaXML 추출 검증 필요**(개발 환경 실행 불가).
+- ✅ 1단계 디코딩 — 구현·**실파일 91/95 byte-일치로 검증**.
 - ✅ 2단계 EnigmaXML→MusicXML — 구현 + **실제 musxdom 샘플로 Node 검증**(음높이·음길이·
   조표·다보표·타이·잇단음표). `.musx` → AI 입력 + MusicXML 내려받기 연결.
-- ⏳ 3단계(다층 레이어·셈여림·가사·타악기·정밀 잇단음표) 예정.
-- ⚠ **실 Finale 대조 필요**: 절대 옥타브·세부 정확도는 부인 PC에서 `.musx`↔변환 결과 비교로 확정.
+- ✅ 3단계 다층 레이어 + 레이어 내 v1/v2 + 정밀 잇단음표 — 구현·검증.
+- ⏳ 다음: 셈여림·가사·아티큘레이션·타악기·복합박·이조악기(표기음).
 
 ### 개발자용 — 회귀 테스트
-`rpatters1/musxdom`의 `tests/data/*.enigmaxml`(실제 샘플)로 `enigmaToMusicXml` 검증 가능.
-Node + `@xmldom/xmldom`로 함수만 떼어 돌리면 음높이·음길이·구조를 확인할 수 있다(세션 중
-triplet·tie_across_key·slur·layers 등으로 확인).
+`tools/validate-musx.cjs` 로 실파일 검증(디코드 byte 비교 + 변환 오류/빈마디 점검):
+```
+git clone --depth 1 https://github.com/rpatters1/musxdom /tmp/musxdom
+npm i @xmldom/xmldom          # 변환 테스트에만 필요
+node tools/validate-musx.cjs /tmp/musxdom/tests/data
+```
+index.html 의 디코드/변환 함수를 anchor 로 떼어 돌린다.
