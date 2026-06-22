@@ -5,48 +5,83 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>sojeongcompose — AI 작곡 보조 (창작국악)</title>
 <style>
-  :root { --bg:#faf9f7; --fg:#222; --mut:#666; --line:#ddd; --accent:#7a4; }
+  :root { --bg:#faf9f7; --fg:#222; --mut:#666; --line:#ddd; --accent:#7a4; --card:#fff; --bub:#eef3ec; --code:#f3f1ec; }
+  [data-theme=dark] { --bg:#15171b; --fg:#e7e7e7; --mut:#9aa1aa; --line:#333a43; --accent:#8ac06a; --card:#1d2026; --bub:#222a20; --code:#23262c; }
   * { box-sizing: border-box; }
   body { font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
          margin:0; background:var(--bg); color:var(--fg); line-height:1.5; }
-  header { padding:16px 20px; border-bottom:1px solid var(--line); }
-  header h1 { margin:0; font-size:18px; }
-  header p { margin:4px 0 0; color:var(--mut); font-size:13px; }
-  main { max-width:880px; margin:0 auto; padding:20px; }
-  fieldset { border:1px solid var(--line); border-radius:10px; margin:0 0 16px; padding:14px 16px; background:#fff; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { margin:0; font-size:18px; flex:1; }
+  #theme { background:transparent; color:var(--mut); border:1px solid var(--line); border-radius:8px; padding:6px 11px; font-size:13px; cursor:pointer; }
+  main { max-width:900px; margin:0 auto; padding:20px; }
+  fieldset { border:1px solid var(--line); border-radius:10px; margin:0 0 16px; padding:14px 16px; background:var(--card); }
   legend { font-weight:600; padding:0 6px; }
   label { display:block; font-size:13px; color:var(--mut); margin:8px 0 3px; }
   input[type=text], input[type=password], select, textarea {
-    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit; }
-  textarea { resize:vertical; }
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit;
+    background:var(--bg); color:var(--fg); }
+  textarea { resize:vertical; overflow:hidden; min-height:42px; }
   .row { display:flex; gap:10px; flex-wrap:wrap; }
   .row > div { flex:1; min-width:160px; }
   .drop { border:2px dashed var(--line); border-radius:10px; padding:22px; text-align:center; color:var(--mut);
-          background:#fff; cursor:pointer; }
-  .drop.hl { border-color:var(--accent); background:#f3f8f0; }
+          background:var(--bg); cursor:pointer; }
+  .drop.hl { border-color:var(--accent); }
   button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-size:15px; cursor:pointer; }
   button:disabled { opacity:.5; cursor:default; }
   .muted { color:var(--mut); font-size:12px; }
+  a { color:var(--accent); }
+  .err { color:#d4554b; } .ok { color:var(--accent); }
   #fileInfo { font-size:13px; margin-top:8px; white-space:pre-wrap; }
-  #out { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; min-height:80px; white-space:pre-wrap; }
   details summary { cursor:pointer; color:var(--mut); font-size:13px; }
-  .setbox { border:1px solid var(--line); border-radius:10px; background:#fff; padding:10px 14px; margin:0 0 16px; }
+  .setbox { border:1px solid var(--line); border-radius:10px; background:var(--card); padding:10px 14px; margin:0 0 16px; }
   .setbox > summary { font-weight:600; color:var(--mut); font-size:13px; list-style:none; }
   .setbox[open] > summary { margin-bottom:8px; }
-  .err { color:#c33; }
-  .score { background:#fff; margin:12px 0; overflow-x:auto; }
+  /* 대화 스레드 */
+  #out { min-height:80px; }
+  #out.empty { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; color:var(--mut); font-size:12px; }
+  .thread { display:flex; flex-direction:column; gap:14px; }
+  .turn { border:1px solid var(--line); border-radius:10px; padding:11px 14px; background:var(--card); }
+  .turn.user { background:var(--bub); }
+  .turn .who { font-size:11px; font-weight:700; color:var(--mut); margin-bottom:5px; letter-spacing:.04em; }
+  .turn.user .body { white-space:pre-wrap; }
+  /* 마크다운 */
+  .md > :first-child { margin-top:0; } .md > :last-child { margin-bottom:0; }
+  .md h1,.md h2,.md h3,.md h4 { margin:.8em 0 .3em; line-height:1.3; }
+  .md h1{font-size:1.3em} .md h2{font-size:1.17em} .md h3{font-size:1.06em} .md h4{font-size:1em}
+  .md p { margin:.5em 0; } .md ul,.md ol { margin:.4em 0; padding-left:1.4em; } .md li { margin:.15em 0; }
+  .md code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:.92em; }
+  .md blockquote { margin:.5em 0; padding:.2em .9em; border-left:3px solid var(--line); color:var(--mut); }
+  .md hr { border:0; border-top:1px solid var(--line); margin:1em 0; }
+  .md table { border-collapse:collapse; margin:.6em 0; font-size:.93em; display:block; overflow-x:auto; }
+  .md th,.md td { border:1px solid var(--line); padding:5px 9px; text-align:left; }
+  .md th { background:var(--bub); }
+  /* 악보 (오선보는 흰 바탕 유지) */
+  .score { background:#fff; margin:12px 0 4px; overflow-x:auto; border-radius:8px; padding:4px; }
   .score svg { max-width:100%; height:auto; }
-  .scoretools { margin:4px 0 10px; display:flex; gap:6px; flex-wrap:wrap; }
-  .stbtn { background:#eef3ec; color:#3a5a32; border:1px solid #cdd9c8; border-radius:6px;
-           padding:3px 10px; font-size:12px; cursor:pointer; }
+  .abcjs-note_selected, .abcjs-highlight { fill:var(--accent); }
+  .scoretools { margin:4px 0 8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .stbtn { background:var(--bub); color:var(--fg); border:1px solid var(--line); border-radius:6px;
+           padding:4px 10px; font-size:12px; cursor:pointer; }
   .stbtn:disabled { opacity:.5; cursor:default; }
+  .scoretools select.stbtn { width:auto; padding:3px 8px; }
+  .scoretools input[type=range] { width:96px; vertical-align:middle; accent-color:var(--accent); }
+  #stop { background:#b5564c; }
+  /* 2단 레이아웃(넓은 화면) */
+  @media (min-width:1100px){
+    main.split { max-width:1320px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.06fr);
+                 gap:24px; align-items:start; }
+    main.split .pane-out { position:sticky; top:20px; max-height:calc(100vh - 40px); overflow:auto; }
+    main.split .full { grid-column:1 / -1; }
+  }
 </style>
 </head>
 <body>
 <header>
   <h1>sojeongcompose · AI 작곡 보조 <span class="muted">(창작국악)</span></h1>
+  <button id="theme" type="button" title="화면 테마">🌙 다크</button>
 </header>
-<main>
+<main id="main" class="split">
+ <div class="pane-in">
 
   <details id="settings" class="setbox">
     <summary>⚙ AI 설정 — 모델·엔드포인트·키 (처음 한 번만)</summary>
@@ -57,6 +92,7 @@
     <label>API 키 <span class="muted">(이 PC의 앱 설정 파일에 저장 — 한 번 입력하면 유지, 외부 공유 안 됨)</span></label>
     <input id="apiKey" type="password" placeholder="sk-...">
     <p class="muted">예) GLM: Base URL <code>https://api.z.ai/api/paas/v4</code>, 모델 <code>glm-4.6</code>. 정확한 값은 공급자 문서 확인.</p>
+    <div style="margin-top:6px"><button id="testConn" type="button" class="stbtn">연결 테스트</button> <span id="testResult" class="muted"></span></div>
   </details>
 
   <fieldset>
@@ -80,23 +116,31 @@
       <summary>추가 지식 붙여넣기 (선택 — 내장 지식 외에 더 넣고 싶을 때만)</summary>
       <textarea id="extra" rows="3" placeholder="필요 시에만. 비워두면 내장 지식이 자동 적용됩니다."></textarea>
     </details>
-    <div style="margin-top:12px"><button id="go">아이디어 받기</button> <span id="status" class="muted"></span></div>
+    <div style="margin-top:12px"><button id="go">아이디어 받기</button>
+      <button id="stop" type="button" style="display:none">⏹ 중단</button>
+      <span id="status" class="muted"></span></div>
+    <p class="muted" style="margin-top:6px">⌘/Ctrl+Enter 로도 보낼 수 있어요.</p>
   </fieldset>
+
+ </div><!-- /pane-in -->
+ <div class="pane-out">
 
   <fieldset>
     <legend>3. 결과</legend>
-    <div id="out" class="muted">여기에 AI의 작곡 아이디어가 표시됩니다.</div>
+    <div id="out" class="empty">여기에 AI의 작곡 아이디어가 표시됩니다. (대화가 이어서 쌓입니다)</div>
     <div id="fb" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
       <label>이 결과에 피드백·수정 요청 <span class="muted">(대화를 이어서 다듬습니다 — 제약은 계속 지켜짐)</span></label>
       <textarea id="feedback" rows="2" placeholder="예) 2번 안이 좋은데 해금 음역을 벗어났어 — 그 안을 유지하되 음역 안으로 고쳐줘. / 더 격렬하게. / 종지를 본청으로 마무리. / 농현 지점을 더 구체적으로."></textarea>
       <div style="margin-top:8px"><button id="refine">피드백 반영해 다시</button>
         <button id="reset" style="background:#999">새 대화로 시작</button></div>
     </div>
-    <p class="muted" style="margin-top:10px">악보 아래 <b>▶ 들어보기</b>(소리 확인 — 인터넷 필요)·<b>ABC 복사</b>·<b>MusicXML 내보내기</b>로 활용하세요. MusicXML은 <b>단순 선율·화음(베타)</b>을 Finale <b>파일 → 가져오기</b>로 — 슬러·타이·반복·코드심볼 등은 변환 대신 <b>ABC 복사</b>를 쓰세요.</p>
+    <p class="muted" style="margin-top:10px">악보 아래 <b>▶ 재생</b>(템포·반복·재생커서·음색 — 인터넷 필요)·<b>ABC 복사</b>·<b>MusicXML 내보내기</b>로 활용하세요. MusicXML은 <b>단순 선율·화음(베타)</b>을 Finale <b>파일 → 가져오기</b>로 — 슬러·타이·반복·코드심볼 등은 변환 대신 <b>ABC 복사</b>를 쓰세요.</p>
   </fieldset>
 
-  <p class="muted">AI 호출은 앱 백엔드가 대신합니다(브라우저 직접 호출이 아니라 CORS 문제 없음). 키는 본인 PC에만 저장되며 공유하지 마세요. 공급자가 <b>도구(tool) 호출</b>을 지원해야 합니다(GLM·OpenAI 등).</p>
-  <p class="muted">내장 작곡 지식 출처: <a href="https://github.com/SJY051/music-composition" target="_blank">SJY051/music-composition</a> (CC BY 4.0).</p>
+ </div><!-- /pane-out -->
+
+  <p class="muted full">AI 호출은 앱 백엔드가 대신합니다(브라우저 직접 호출이 아니라 CORS 문제 없음). 키는 본인 PC에만 저장되며 공유하지 마세요. 공급자가 <b>도구(tool) 호출</b>을 지원해야 합니다(GLM·OpenAI 등).</p>
+  <p class="muted full">내장 작곡 지식 출처: <a href="https://github.com/SJY051/music-composition" target="_blank">SJY051/music-composition</a> (CC BY 4.0).</p>
 </main>
 
 
@@ -484,28 +528,57 @@ function parseMusicXml(xml){
 }
 
 // ---- 응답 렌더 (텍스트 + ```abc 악보를 오선보로) ----
-function proseNode(t){ const s=document.createElement("span"); s.style.whiteSpace="pre-wrap"; s.textContent=t; return s; }
-function renderResponse(content){
-  const out=$("out"); out.className=""; out.textContent="";
-  if(!content){ out.textContent="(빈 응답)"; return; }
-  const re=/```abc\s*\n?([\s\S]*?)```/gi;
-  let last=0, m;
+// 안전한 마크다운 렌더(먼저 HTML 이스케이프 → 화이트리스트 태그·http 링크만 생성).
+function mdToHtml(raw){
+  const E=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const inl=s=>s
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+?)\*/g,'$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const L=E(raw).replace(/\r/g,"").split("\n"), o=[], blank=s=>/^\s*$/.test(s); let i=0;
+  while(i<L.length){
+    const ln=L[i];
+    if(blank(ln)){ i++; continue; }
+    // 표(헤더 + 구분선)
+    if(ln.indexOf("|")>=0 && i+1<L.length && /-/.test(L[i+1]) && /^\s*\|?[\s:|-]+\|?\s*$/.test(L[i+1])){
+      const cells=r=>r.replace(/^\s*\|/,"").replace(/\|\s*$/,"").split("|").map(c=>inl(c.trim()));
+      let t='<table><thead><tr>'+cells(ln).map(c=>'<th>'+c+'</th>').join("")+'</tr></thead><tbody>'; i+=2;
+      while(i<L.length && L[i].indexOf("|")>=0 && !blank(L[i])){ t+='<tr>'+cells(L[i]).map(c=>'<td>'+c+'</td>').join("")+'</tr>'; i++; }
+      o.push(t+'</tbody></table>'); continue;
+    }
+    let m;
+    if((m=ln.match(/^(#{1,4})\s+(.*)$/))){ const n=m[1].length; o.push('<h'+n+'>'+inl(m[2])+'</h'+n+'>'); i++; continue; }
+    if(/^\s*(---+|\*\*\*+|___+)\s*$/.test(ln)){ o.push('<hr>'); i++; continue; }
+    if(/^\s*&gt;\s?/.test(ln)){ const q=[]; while(i<L.length && /^\s*&gt;\s?/.test(L[i])){ q.push(L[i].replace(/^\s*&gt;\s?/,"")); i++; } o.push('<blockquote>'+inl(q.join(" "))+'</blockquote>'); continue; }
+    if(/^\s*[-*+]\s+/.test(ln)){ const it=[]; while(i<L.length && /^\s*[-*+]\s+/.test(L[i])){ it.push('<li>'+inl(L[i].replace(/^\s*[-*+]\s+/,""))+'</li>'); i++; } o.push('<ul>'+it.join("")+'</ul>'); continue; }
+    if(/^\s*\d+[.)]\s+/.test(ln)){ const it=[]; while(i<L.length && /^\s*\d+[.)]\s+/.test(L[i])){ it.push('<li>'+inl(L[i].replace(/^\s*\d+[.)]\s+/,""))+'</li>'); i++; } o.push('<ol>'+it.join("")+'</ol>'); continue; }
+    const p=[ln]; i++;
+    while(i<L.length && !blank(L[i]) && L[i].indexOf("|")<0 && !/^(#{1,4}\s|\s*[-*+]\s|\s*\d+[.)]\s|\s*&gt;|\s*(---+|\*\*\*+|___+)\s*$)/.test(L[i])){ p.push(L[i]); i++; }
+    o.push('<p>'+inl(p.join("<br>"))+'</p>');
+  }
+  return o.join("\n");
+}
+function mdNode(t){ const d=document.createElement("div"); d.className="md"; d.innerHTML=mdToHtml(t); return d; }
+
+// 응답을 대상 요소 el(어시스턴트 말풍선 본문)에 렌더: ```abc``` 는 악보로, 나머지는 마크다운.
+function renderInto(el, content){
+  el.className="body"; el.textContent="";
+  if(!content){ el.appendChild(mdNode("(빈 응답)")); return; }
+  const re=/```abc\s*\n?([\s\S]*?)```/gi; let last=0, m;
   while((m=re.exec(content))){
-    if(m.index>last) out.appendChild(proseNode(content.slice(last,m.index)));
+    if(m.index>last) el.appendChild(mdNode(content.slice(last,m.index)));
     const abc=m[1].trim();
-    const wrap=document.createElement("div"); wrap.className="score"; out.appendChild(wrap);
+    const wrap=document.createElement("div"); wrap.className="score"; el.appendChild(wrap);
     try{
       if(!window.ABCJS) throw new Error("renderer not loaded");
       const visual=ABCJS.renderAbc(wrap, abc, {responsive:"resize"});
       if(!wrap.querySelector("svg")) throw new Error("no score");
-      addScoreTools(out, abc, visual&&visual[0]);
-    }catch(e){ // 렌더 실패 시 원본 ABC를 글자로
-      wrap.className=""; const pre=document.createElement("pre");
-      pre.style.whiteSpace="pre-wrap"; pre.textContent=abc; wrap.appendChild(pre);
-    }
+      addScoreTools(el, abc, visual&&visual[0]);
+    }catch(e){ wrap.className=""; const pre=document.createElement("pre"); pre.style.whiteSpace="pre-wrap"; pre.textContent=abc; wrap.appendChild(pre); }
     last=re.lastIndex;
   }
-  if(last<content.length) out.appendChild(proseNode(content.slice(last)));
+  if(last<content.length) el.appendChild(mdNode(content.slice(last)));
 }
 
 // ---- 악보 도구 모음: 들어보기(오디오)·ABC 복사·MusicXML 내보내기 ----
@@ -515,27 +588,46 @@ function downloadFile(text, name, type){
   const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a);
   a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
+// GM 프로그램으로 국악기 음색 근사(전용 사운드폰트가 아니라 근사치).
+const GM_INSTR=[["기본 음색",-1],["대금·소금(Flute)",73],["피리(Oboe)",68],["해금(Fiddle)",110],
+  ["가야금(Koto)",107],["거문고(Shamisen)",106],["아쟁(Cello)",42],["양금(Dulcimer)",15],["피아노",0]];
 function addScoreTools(container, abc, tune){
   const bar=document.createElement("div"); bar.className="scoretools";
-  // 들어보기 (abcjs 신스 — 음원 폰트는 온라인에서 받아옴; LLM처럼 인터넷 필요)
+  // 재생 (abcjs 신스 — 음원 폰트는 온라인에서 받아옴; 템포·반복·재생커서·음색)
   if(tune && window.ABCJS && ABCJS.synth && ABCJS.synth.supportsAudio && ABCJS.synth.supportsAudio()){
-    const play=mkBtn("▶ 들어보기"); let synth=null, endTimer=null;
-    const reset=()=>{ clearTimeout(endTimer); play.textContent="▶ 들어보기"; if(stopCurrentAudio===stop) stopCurrentAudio=null; };
-    const stop=()=>{ try{ if(synth) synth.stop(); }catch(_){ } reset(); };
-    play.onclick=async()=>{
-      try{
-        if(stopCurrentAudio===stop){ stop(); return; }   // 재생 중 다시 누르면 정지
-        if(stopCurrentAudio) stopCurrentAudio();          // 다른 악보가 재생 중이면 멈춤(겹침 방지)
-        if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-        if(audioCtx.state==="suspended") await audioCtx.resume();
-        if(!synth){ synth=new ABCJS.synth.CreateSynth(); await synth.init({audioContext:audioCtx, visualObj:tune}); }
-        const primed=await synth.prime();                 // {duration} 초
-        await synth.start(); stopCurrentAudio=stop; play.textContent="⏹ 정지";
-        const ms=(primed&&primed.duration?primed.duration:0)*1000;
-        if(ms) endTimer=setTimeout(reset, ms+250);        // 자연 종료 시 라벨 복원
-      }catch(e){ play.textContent="재생 불가"; play.disabled=true; }
+    const play=mkBtn("▶ 재생");
+    let synth=null, timer=null, endTimer=null, playing=false, prog=-1, factor=1, loop=false;
+    const clearHi=()=>document.querySelectorAll(".abcjs-highlight").forEach(e=>e.classList.remove("abcjs-highlight"));
+    const baseQpm=()=>{ try{ return (tune.getBpm&&tune.getBpm())||(tune.metaText&&tune.metaText.tempo&&tune.metaText.tempo.bpm)||120; }catch(_){ return 120; } };
+    const stop=()=>{ try{ if(synth) synth.stop(); }catch(_){ } try{ if(timer) timer.stop(); }catch(_){ }
+      clearTimeout(endTimer); clearHi(); playing=false; play.textContent="▶ 재생"; if(stopCurrentAudio===stop) stopCurrentAudio=null; };
+    const startAudio=async()=>{
+      if(stopCurrentAudio && stopCurrentAudio!==stop) stopCurrentAudio();   // 겹침 방지
+      if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==="suspended") await audioCtx.resume();
+      const opt={audioContext:audioCtx, visualObj:tune, millisecondsPerMeasure:tune.millisecondsPerMeasure()/factor};
+      if(prog>=0) opt.options={program:prog};
+      synth=new ABCJS.synth.CreateSynth(); await synth.init(opt);
+      const primed=await synth.prime(); await synth.start();
+      try{ timer=new ABCJS.TimingCallbacks(tune,{qpm:baseQpm()*factor, eventCallback:ev=>{ clearHi();
+        if(ev&&ev.elements) ev.elements.forEach(g=>g.forEach(el=>el.classList&&el.classList.add("abcjs-highlight"))); }}); timer.start(); }catch(_){ timer=null; }
+      playing=true; play.textContent="⏹ 정지"; stopCurrentAudio=stop;
+      const ms=(primed&&primed.duration?primed.duration:0)*1000;
+      if(ms) endTimer=setTimeout(()=>{ stop(); if(loop) play.click(); }, ms+200);
     };
+    play.onclick=async()=>{ if(playing){ stop(); return; } try{ await startAudio(); }catch(e){ play.textContent="재생 불가"; play.disabled=true; } };
     bar.appendChild(play);
+    const sel=document.createElement("select"); sel.className="stbtn"; sel.title="재생 음색(근사)";
+    GM_INSTR.forEach(([n,p])=>{ const o=document.createElement("option"); o.value=p; o.textContent=n; sel.appendChild(o); });
+    sel.onchange=()=>{ prog=parseInt(sel.value,10); if(playing){ stop(); play.click(); } };
+    bar.appendChild(sel);
+    const tr=document.createElement("input"); tr.type="range"; tr.min="50"; tr.max="150"; tr.value="100"; tr.title="재생 템포";
+    const tlab=document.createElement("span"); tlab.className="muted"; tlab.textContent="1.0×";
+    tr.oninput=()=>{ factor=parseInt(tr.value,10)/100; tlab.textContent=factor.toFixed(2)+"×"; };
+    tr.onchange=()=>{ if(playing){ stop(); play.click(); } };
+    bar.appendChild(tr); bar.appendChild(tlab);
+    const lp=mkBtn("↻ 반복"); lp.onclick=()=>{ loop=!loop; lp.textContent=loop?"↻ 반복 ON":"↻ 반복"; lp.style.borderColor=loop?"var(--accent)":""; };
+    bar.appendChild(lp);
   }
   const cp=mkBtn("ABC 복사");
   cp.onclick=async()=>{ try{ await navigator.clipboard.writeText(abc); cp.textContent="복사됨"; setTimeout(()=>cp.textContent="ABC 복사",1200);}catch(_){ cp.textContent="복사 실패"; } };
@@ -696,19 +788,35 @@ function abcToMusicXml(abc){
 // ---- API 호출 (백엔드 에이전트 루프; 피드백으로 이어가기 지원) ----
 let history=[];     // [{role:'user'|'assistant', content}] — 직전 답변·피드백 체인
 let lastAnswer="";
+let abortCtl=null, curBody=null;
+
+// ---- 대화 스레드(질문→답→피드백→답 누적) ----
+function threadEmpty(){ const o=$("out"); o.innerHTML=""; o.className="empty"; o.textContent="여기에 AI의 작곡 아이디어가 표시됩니다. (대화가 이어서 쌓입니다)"; }
+function addTurn(role, text){
+  const o=$("out"); if(o.classList.contains("empty")){ o.className="thread"; o.textContent=""; }
+  const t=document.createElement("div"); t.className="turn "+role;
+  const who=document.createElement("div"); who.className="who"; who.textContent=(role==="user"?"나":"sojeongcompose");
+  const body=document.createElement("div"); body.className="body"; if(text!=null) body.textContent=text;
+  t.appendChild(who); t.appendChild(body); o.appendChild(t); t.scrollIntoView({block:"nearest"});
+  return body;
+}
+function setBusy(b){ $("go").disabled=b; $("refine").disabled=b; $("stop").style.display=b?"":"none"; }
+
 async function runChat(feedback){
   saveCfg();
   const base=$("baseUrl").value.replace(/\/+$/,""), model=$("model").value, key=$("apiKey").value;
   if(!base||!model||!key){ setStatus("설정(Base URL·모델·키)을 확인하세요.",true); const s=$("settings"); if(s)s.open=true; return; }
-  if(location.protocol==="file:"){ $("out").innerHTML='<span class="err">이 기능은 독립 실행파일(앱)에서만 동작합니다.</span><br><span class="muted">sojeongcompose 앱으로 실행하세요.</span>'; setStatus("앱 필요",true); return; }
+  if(location.protocol==="file:"){ const b=addTurn("assistant",""); b.innerHTML='<span class="err">이 기능은 독립 실행파일(앱)에서만 동작합니다.</span>'; setStatus("앱 필요",true); return; }
   let pushed=0;
   if(feedback){ history.push({role:"assistant",content:lastAnswer},{role:"user",content:feedback}); pushed=2; }
-  else { history=[]; }   // 새 요청 = 새 대화
-  $("go").disabled=true; $("refine").disabled=true;
+  else { history=[]; threadEmpty(); }   // 새 요청 = 새 대화(스레드 비움)
+  addTurn("user", feedback||$("question").value||"(질문 없음)");
+  curBody=addTurn("assistant",""); curBody.innerHTML='<span class="muted">생각 중…</span>';
+  setBusy(true);
   setStatus(feedback?"피드백 반영 중…":"생각 중… (AI가 필요한 작곡 지식 문서를 직접 찾아 읽는 중)");
-  $("out").className=""; $("out").textContent="";
+  abortCtl=new AbortController();
   try{
-    const res=await fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"},
+    const res=await fetch("/api/chat",{ method:"POST", headers:{"Content-Type":"application/json"}, signal:abortCtl.signal,
       body:JSON.stringify({ baseUrl:base, apiKey:key, model,
         intent:$("intent").value, constraints:$("constraints").value, score:parsedSummary,
         question:$("question").value, extra:$("extra").value, history }) });
@@ -717,9 +825,8 @@ async function runChat(feedback){
     if(ct.includes("application/json")){
       const data=await res.json();
       if(data.error) throw new Error(data.error);
-      lastAnswer=data.content||""; renderResponse(lastAnswer);
-      $("fb").style.display="block"; $("feedback").value="";
-      setStatus("완료"); return;
+      lastAnswer=data.content||""; renderInto(curBody,lastAnswer);
+      $("fb").style.display="block"; $("feedback").value=""; setStatus("완료"); return;
     }
     // SSE 스트림 읽기
     const reader=res.body.getReader(), dec=new TextDecoder();
@@ -732,15 +839,15 @@ async function runChat(feedback){
         const line=buf.slice(0,idx).trim(); buf=buf.slice(idx+2);
         if(!line.startsWith("data:")) continue;
         let ev; try{ ev=JSON.parse(line.slice(5).trim()); }catch(_){ continue; }
-        if(ev.type==="delta"){ acc+=ev.text; $("out").className=""; $("out").textContent=acc; }
+        if(ev.type==="delta"){ acc+=ev.text; curBody.textContent=acc; curBody.scrollIntoView({block:"nearest"}); }
         else if(ev.type==="progress"){
           // 문서 읽기로 넘어가면 그 전 토막 텍스트는 '읽을게요…' 같은 중간말 → 버린다
-          if(ev.doc){ acc=""; $("out").textContent=""; setStatus("문서 읽는 중: "+ev.doc); }
+          if(ev.doc){ acc=""; curBody.innerHTML='<span class="muted">📖 '+esc(ev.doc)+' 읽는 중…</span>'; setStatus("문서 읽는 중: "+ev.doc); }
           else setStatus(ev.msg||"생각 중…");
         }
         else if(ev.type==="done"){
           // 최종 답은 done.content 가 정본(중간말 제외). 없을 때만 누적분 사용.
-          const final=(ev.content&&ev.content.length)?ev.content:acc; lastAnswer=final; renderResponse(final); done=true;
+          const final=(ev.content&&ev.content.length)?ev.content:acc; lastAnswer=final; renderInto(curBody,final); done=true;
           setStatus("완료"+(ev.docs&&ev.docs.length?(" · 참고문서 "+ev.docs.length+"개: "+ev.docs.join(", ")):""));
           $("fb").style.display="block"; $("feedback").value="";
         }
@@ -749,20 +856,49 @@ async function runChat(feedback){
     }
     if(err) throw new Error(err);
     if(!done){ // 스트림이 done 없이 끊김 — 받은 텍스트라도 살린다
-      lastAnswer=acc; if(acc) renderResponse(acc); setStatus(acc?"완료(부분)":"응답 없음",!acc);
+      lastAnswer=acc; if(acc) renderInto(curBody,acc); else curBody.innerHTML='<span class="muted">응답 없음</span>';
+      setStatus(acc?"완료(부분)":"응답 없음",!acc);
       if(acc){ $("fb").style.display="block"; $("feedback").value=""; }
     }
   }catch(e){
     if(pushed){ history.splice(history.length-pushed, pushed); } // 실패 시 푸시한 턴 롤백
-    $("out").innerHTML='<span class="err">오류: '+e.message+'</span>';
-    setStatus("실패",true);
-  }finally{ $("go").disabled=false; $("refine").disabled=false; }
+    if(e.name==="AbortError"){ curBody.innerHTML='<span class="muted">중단됨</span>'; setStatus("중단됨"); }
+    else { curBody.innerHTML='<span class="err">오류: '+esc(e.message)+'</span>'; setStatus("실패",true); }
+  }finally{ setBusy(false); abortCtl=null; }
 }
 
 function setStatus(t,err){ const s=$("status"); s.textContent=t; s.className=err?"err":"muted"; }
 $("go").onclick=()=>runChat();
 $("refine").onclick=()=>{ const f=$("feedback").value.trim(); if(f) runChat(f); else $("feedback").focus(); };
-$("reset").onclick=()=>{ history=[]; lastAnswer=""; $("fb").style.display="none"; $("out").className="muted"; $("out").textContent="여기에 AI의 작곡 아이디어가 표시됩니다."; setStatus(""); };
+$("reset").onclick=()=>{ history=[]; lastAnswer=""; $("fb").style.display="none"; threadEmpty(); setStatus(""); };
+$("stop").onclick=()=>{ if(abortCtl) abortCtl.abort(); };
+
+// ⌘/Ctrl+Enter 로 보내기
+function submitKey(el, fn){ el.addEventListener("keydown",e=>{ if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){ e.preventDefault(); fn(); } }); }
+submitKey($("question"), ()=>{ if(!$("go").disabled) runChat(); });
+submitKey($("feedback"), ()=>{ const f=$("feedback").value.trim(); if(f && !$("refine").disabled) runChat(f); });
+
+// textarea 자동 높이
+function autoGrow(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,420)+"px"; }
+document.querySelectorAll("textarea").forEach(t=>{ t.addEventListener("input",()=>autoGrow(t)); });
+
+// 화면 테마(라이트/다크) — 시스템 설정 기본, 토글 시 기억
+function applyTheme(t){ document.documentElement.setAttribute("data-theme",t); $("theme").textContent=(t==="dark"?"☀ 라이트":"🌙 다크"); }
+let theme=localStorage.getItem("sjc-theme")||((window.matchMedia&&matchMedia("(prefers-color-scheme:dark)").matches)?"dark":"light");
+applyTheme(theme);
+$("theme").onclick=()=>{ theme=(theme==="dark"?"light":"dark"); try{localStorage.setItem("sjc-theme",theme);}catch(_){} applyTheme(theme); };
+
+// 연결 테스트(키·모델·엔드포인트 검증)
+$("testConn").onclick=async()=>{
+  const base=$("baseUrl").value.replace(/\/+$/,""), model=$("model").value, key=$("apiKey").value, r=$("testResult");
+  if(!base||!model||!key){ r.className="err"; r.textContent="Base URL·모델·키를 모두 입력하세요."; return; }
+  r.className="muted"; r.textContent="확인 중…"; $("testConn").disabled=true; saveCfg();
+  try{
+    const res=await fetch("/api/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({baseUrl:base,model,apiKey:key})});
+    const d=await res.json();
+    if(d.ok){ r.className="ok"; r.textContent="✓ 연결 성공"; } else { r.className="err"; r.textContent="✗ "+(d.error||"실패"); }
+  }catch(e){ r.className="err"; r.textContent="✗ "+e.message; } finally{ $("testConn").disabled=false; }
+};
 CFG_KEYS.forEach(k=>$(k).addEventListener("change",saveCfg));
 </script>
 </body>

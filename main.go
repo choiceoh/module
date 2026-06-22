@@ -82,6 +82,7 @@ func main() {
 	})
 	mux.HandleFunc("/api/config", handleConfig)
 	mux.HandleFunc("/api/chat", handleChat)
+	mux.HandleFunc("/api/test", handleTest)
 
 	// 고정 포트로 띄운다 → 브라우저 origin(host:port)이 매 실행·매 빌드마다 같아져
 	// localStorage에 저장한 설정(Base URL·모델·API 키)이 그대로 유지된다.
@@ -291,6 +292,57 @@ type provResp struct {
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
+}
+
+// handleTest: 설정(키·모델·엔드포인트)이 실제로 통하는지 최소 호출로 검증한다.
+// 작은 비스트리밍 요청을 보내 200 이면 성공, 아니면 공급자 오류 메시지를 돌려준다.
+func handleTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", 405)
+		return
+	}
+	var req uiReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, map[string]any{"error": "bad request: " + err.Error()})
+		return
+	}
+	if req.BaseURL == "" || req.Model == "" || req.APIKey == "" {
+		writeJSON(w, map[string]any{"error": "Base URL·모델·키가 필요합니다."})
+		return
+	}
+	body, _ := json.Marshal(map[string]any{
+		"model":      req.Model,
+		"messages":   []map[string]string{{"role": "user", "content": "ping"}},
+		"max_tokens": 1,
+		"stream":     false,
+	})
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	url := strings.TrimRight(req.BaseURL, "/") + "/chat/completions"
+	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		writeJSON(w, map[string]any{"error": err.Error()})
+		return
+	}
+	hr.Header.Set("Content-Type", "application/json")
+	hr.Header.Set("Authorization", "Bearer "+req.APIKey)
+	resp, err := httpClient.Do(hr)
+	if err != nil {
+		writeJSON(w, map[string]any{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(io.LimitReader(resp.Body, 4000))
+	if resp.StatusCode != http.StatusOK {
+		var pe provResp
+		if json.Unmarshal(b, &pe) == nil && pe.Error != nil {
+			writeJSON(w, map[string]any{"error": pe.Error.Message})
+			return
+		}
+		writeJSON(w, map[string]any{"error": fmt.Sprintf("HTTP %d", resp.StatusCode)})
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true})
 }
 
 func handleChat(w http.ResponseWriter, r *http.Request) {
