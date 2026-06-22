@@ -352,14 +352,25 @@ function midiToName(step,oct,alter){ const s=STEP_SEMI[(step||"C").toUpperCase()
   const m=(oct+1)*12+s+(alter||0); return SHARP[((m%12)+12)%12]+(Math.floor(m/12)-1); }
 function txt(el,t){ const n=el&&el.getElementsByTagName(t)[0]; return n?n.textContent:null; }
 
-// 음표값(type) → 분모 표기(4=4분음표, 8=8분음표 …). 점은 '.'. (모든 MusicXML type 포함)
+// 음표값(type) → 분모 표기(4=4분음표 …). 점은 '.'. (모든 MusicXML type)
 const DURMAP={maxima:"0.125",long:"0.25",breve:"0.5",whole:"1",half:"2",quarter:"4",eighth:"8","16th":"16","32nd":"32","64th":"64","128th":"128","256th":"256","512th":"512","1024th":"1024"};
-function durSym(n){ let s=DURMAP[txt(n,"type")]||"?"; s+=".".repeat(n.getElementsByTagName("dot").length); return s; }
+function qToDenom(q){ // 4분음표 길이(q) → 분모 표기(점 포함). divisions 기반 폴백용.
+  const base=[[8,"0.5"],[4,"1"],[2,"2"],[1,"4"],[0.5,"8"],[0.25,"16"],[0.125,"32"],[0.0625,"64"]];
+  for(const [qq,s] of base) if(Math.abs(q-qq)<1e-4) return s;
+  for(const [qq,s] of base) if(Math.abs(q-qq*1.5)<1e-4) return s+"."; // 점음표
+  return null;
+}
+function durSym(n,divisions){
+  const t=txt(n,"type");
+  if(t) return (DURMAP[t]||"?")+".".repeat(n.getElementsByTagName("dot").length);
+  const dd=parseInt(txt(n,"duration")||"0",10); // type 없으면 duration/divisions 로 추정
+  return ((dd&&divisions)?qToDenom(dd/divisions):null)||"?";
+}
 // 음표 1개 → 토큰. 잇단음표(time-modification) 비율도 표기. 쉼표 '·', 타악 'x위치', 화음음 '+'.
-function noteTok(n){
+function noteTok(n,divisions){
   const tm=n.getElementsByTagName("time-modification")[0];
   const ratio=tm?"("+(txt(tm,"actual-notes")||"?")+":"+(txt(tm,"normal-notes")||"?")+")":"";
-  const suf="/"+durSym(n)+ratio;
+  const suf="/"+durSym(n,divisions)+ratio;
   if(n.getElementsByTagName("rest").length) return "·"+suf;
   const pit=n.getElementsByTagName("pitch")[0], unp=n.getElementsByTagName("unpitched")[0];
   let nm;
@@ -382,25 +393,40 @@ function parseMusicXml(xml){
   const beats=doc.getElementsByTagName("beats")[0], bt=doc.getElementsByTagName("beat-type")[0];
   if(beats&&bt) time=beats.textContent+"/"+bt.textContent;
 
-  // 음+리듬+마디('|'). 다성은 voice별로 묶어 'v1 … ‖ v2 …'. 잇단음표 비율 (a:n). 잇단음표·화음·쉼표·타악 표기.
+  // 음+리듬+마디('|'). 보표/성부별로 묶어 's2v1 … ‖ v2 …'. 잇단음표 (a:n). forward=빈자리(쉼).
   // 예: [가야금] (3마디) C4/4 D4/8 E4/8 | F4/2 ·/2 | …
   const MAXN=500, MAXM=120; // 프롬프트 토큰 폭주 방지(파트당 상한)
+  const divEl=doc.getElementsByTagName("divisions")[0];
+  const divisions=divEl?parseInt(divEl.textContent||"0",10):0;
   const parts=doc.getElementsByTagName("part"); const lines=[];
   for(const part of parts){
-    const id=part.getAttribute("id"); const measStrs=[]; let emitted=0, trunc=false;
-    const allMeas=part.getElementsByTagName("measure");
-    for(const m of allMeas){
+    const id=part.getAttribute("id"); const measStrs=[]; let emitted=0, trunc=false, bars=0;
+    for(const m of part.getElementsByTagName("measure")){
       if(measStrs.length>=MAXM || emitted>=MAXN){ trunc=true; break; }
-      const byV={}, order=[];
-      for(const n of m.getElementsByTagName("note")){
-        if(n.getElementsByTagName("grace").length) continue;
-        const v=txt(n,"voice")||"1"; if(!byV[v]){byV[v]=[];order.push(v);}
-        const tk=noteTok(n); if(tk!=null){ byV[v].push(tk); emitted++; }
+      const mr=m.getElementsByTagName("multiple-rest")[0]; // 다중마디 쉼표
+      if(mr){ const c=parseInt(mr.textContent||"1",10)||1; measStrs.push("[쉼 "+c+"마디]"); bars+=c; continue; }
+      bars++;
+      const streams={}, order=[]; let multiStaff=false;
+      for(let ch=m.firstChild; ch; ch=ch.nextSibling){
+        if(ch.nodeType!==1) continue;
+        const tag=ch.nodeName;
+        if(tag!=="note" && tag!=="forward") continue; // backup 은 voice/staff 키가 위치 보존
+        if(tag==="note" && ch.getElementsByTagName("grace").length) continue;
+        if(emitted>=MAXN){ trunc=true; break; }
+        const st=txt(ch,"staff")||"1", v=txt(ch,"voice")||"1", k=st+"/"+v;
+        if(st!=="1") multiStaff=true;
+        if(!streams[k]){ streams[k]=[]; order.push(k); }
+        if(tag==="forward"){ const dd=parseInt(txt(ch,"duration")||"0",10); streams[k].push("·/"+((divisions&&qToDenom(dd/divisions))||"?")); }
+        else { const tk=noteTok(ch,divisions); if(tk!=null){ streams[k].push(tk); emitted++; } }
       }
-      const vs=order.filter(v=>byV[v].length).map(v=> order.length>1?("v"+v+" "+byV[v].join(" ")):byV[v].join(" "));
+      const multi=order.length>1;
+      const vs=order.filter(k=>streams[k].length).map(k=>{
+        if(!multi) return streams[k].join(" ");
+        const p=k.split("/"); return (multiStaff?"s"+p[0]:"")+"v"+p[1]+" "+streams[k].join(" ");
+      });
       if(vs.length) measStrs.push(vs.join(" ‖ "));
     }
-    lines.push("["+(names[id]||id)+"] ("+allMeas.length+"마디"+(trunc?" 중 일부":"")+") "+measStrs.join(" | ")+(trunc?" …":""));
+    lines.push("["+(names[id]||id)+"] ("+bars+"마디"+(trunc?"+":"")+") "+measStrs.join(" | ")+(trunc?" …":""));
   }
   const head="제목: "+title+(key?" · "+key:"")+(time?" · "+time:"")
     +(partNames.length?" · 악기: "+partNames.join(", "):" · 파트 "+parts.length+"개");
