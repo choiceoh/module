@@ -378,19 +378,22 @@ function noteTok(n,divisions){
   else if(unp) nm="x"+(txt(unp,"display-step")||"")+(txt(unp,"display-octave")||""); // 타악(무음정)
   else return null;
   if(n.getElementsByTagName("chord").length) nm="+"+nm; // 화음 구성음
-  let lyr=""; const ls=n.getElementsByTagName("lyric"); // 가사(절별 음절)
-  for(let i=0;i<ls.length;i++){ const t=txt(ls[i],"text"); if(t) lyr+="「"+t+"」"; }
+  let lyr=""; const ls=n.getElementsByTagName("lyric"); // 가사(절별 음절; 엘리전 등 조각 연결)
+  for(let i=0;i<ls.length;i++){ let t=""; const tx=ls[i].getElementsByTagName("text"); for(let j=0;j<tx.length;j++) t+=tx[j].textContent; if(t) lyr+="「"+t+"」"; }
   return nm+suf+lyr;
 }
-// 셈여림/지시어(<direction>) → 마커. 예: ⟨f⟩ ⟨cresc.⟩ ⟨<⟩(헤어핀).
+// 셈여림/지시어(<direction>) → 마커. 예: ⟨f⟩ ⟨cresc.⟩ ⟨<⟩(헤어핀) ⟨♩=120⟩. 모든 direction-type 수집.
 function dirMark(d){
-  const dt=d.getElementsByTagName("direction-type")[0]; if(!dt) return "";
-  let mk="";
-  const dyn=dt.getElementsByTagName("dynamics")[0];
-  if(dyn) for(let c=dyn.firstChild;c;c=c.nextSibling){ if(c.nodeType===1) mk+=c.nodeName; }
-  const w=dt.getElementsByTagName("words")[0]; if(w&&w.textContent.trim()) mk+=(mk?" ":"")+w.textContent.trim();
-  const we=dt.getElementsByTagName("wedge")[0]; if(we){ const t=we.getAttribute("type"); mk+=(t==="crescendo"?"<":t==="diminuendo"?">":t==="stop"?"!":""); }
-  const meta=d.getElementsByTagName("metronome")[0]; if(meta){ const u=txt(meta,"beat-unit"),pm=txt(meta,"per-minute"); if(pm) mk+=(mk?" ":"")+"♩="+pm; }
+  let mk=""; const add=s=>{ if(s) mk+=(mk?" ":"")+s; };
+  const dts=d.getElementsByTagName("direction-type");
+  for(let i=0;i<dts.length;i++){ const dt=dts[i];
+    const dyn=dt.getElementsByTagName("dynamics")[0];
+    if(dyn){ let s=""; for(let c=dyn.firstChild;c;c=c.nextSibling){ if(c.nodeType===1) s+=(c.nodeName==="other-dynamics"?(c.textContent||"").trim():c.nodeName); } add(s); }
+    const w=dt.getElementsByTagName("words")[0]; if(w&&w.textContent.trim()) add(w.textContent.trim());
+    const we=dt.getElementsByTagName("wedge")[0]; if(we){ const t=we.getAttribute("type"); add(t==="crescendo"?"<":t==="diminuendo"?">":t==="stop"?"!":""); }
+    const meta=dt.getElementsByTagName("metronome")[0];
+    if(meta){ const pm=txt(meta,"per-minute"); if(pm){ const u=txt(meta,"beat-unit"); const dot=meta.getElementsByTagName("beat-unit-dot").length?".":""; add(({quarter:"♩",eighth:"♪"}[u]||u||"♩")+dot+"="+pm); } }
+  }
   return mk?"⟨"+mk+"⟩":"";
 }
 function parseMusicXml(xml){
