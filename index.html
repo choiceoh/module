@@ -341,10 +341,13 @@ function enigmaToMusicXml(enigma){
     body+=' <part id="'+pid+'">\n';
     measures.forEach((meas,mi)=>{
       body+='  <measure number="'+(mi+1)+'">\n';
-      const h=gf[st+":"+meas.cmper], den=Math.round(4096/meas.divbeat);
+      const h=gf[st+":"+meas.cmper];
+      // 겹박자: divbeat가 점음표(예 점4분=1536)면 단순박자 분수로(6/8·9/8·12/8 등 장단).
+      let u=1; while(meas.divbeat%(u*2)===0&&u<4096) u*=2; // divbeat의 최대 2의 거듭제곱
+      const den=4096/u, tbeats=meas.beats*(meas.divbeat/u);
       if(mi===0){ const clef=perc?'<sign>percussion</sign>':(h&&h.clefID===3)?'<sign>F</sign><line>4</line>':'<sign>G</sign><line>2</line>';
-        body+='   <attributes><divisions>'+DIV+'</divisions><key><fifths>'+kf(meas)+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time><clef>'+clef+'</clef>'+mxTranspose(meas.fifths,trans)+'</attributes>\n'; }
-      else if(h){ body+='   <attributes><key><fifths>'+kf(meas)+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time></attributes>\n'; }
+        body+='   <attributes><divisions>'+DIV+'</divisions><key><fifths>'+kf(meas)+'</fifths></key><time><beats>'+tbeats+'</beats><beat-type>'+den+'</beat-type></time><clef>'+clef+'</clef>'+mxTranspose(meas.fifths,trans)+'</attributes>\n'; }
+      else if(h){ body+='   <attributes><key><fifths>'+kf(meas)+'</fifths></key><time><beats>'+tbeats+'</beats><beat-type>'+den+'</beat-type></time></attributes>\n'; }
       // 레이어(frame1~4) + 레이어 내부 v1/v2(<v2/>) → 각각 voice. 둘째 스트림부터 <backup>.
       const streams=[];
       (h?h.f:[]).forEach((fc,li)=>{
