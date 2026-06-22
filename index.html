@@ -36,6 +36,10 @@
   .err { color:#c33; }
   .score { background:#fff; margin:12px 0; overflow-x:auto; }
   .score svg { max-width:100%; height:auto; }
+  .scoretools { margin:4px 0 10px; display:flex; gap:6px; flex-wrap:wrap; }
+  .stbtn { background:#eef3ec; color:#3a5a32; border:1px solid #cdd9c8; border-radius:6px;
+           padding:3px 10px; font-size:12px; cursor:pointer; }
+  .stbtn:disabled { opacity:.5; cursor:default; }
 </style>
 </head>
 <body>
@@ -88,6 +92,7 @@
       <div style="margin-top:8px"><button id="refine">피드백 반영해 다시</button>
         <button id="reset" style="background:#999">새 대화로 시작</button></div>
     </div>
+    <p class="muted" style="margin-top:10px">악보 아래 <b>▶ 들어보기</b>(소리 확인 — 인터넷 필요)·<b>ABC 복사</b>·<b>MusicXML 내보내기</b>(베타 — Finale에서 <b>파일 → 가져오기</b>로 열고 확인)로 활용하세요.</p>
   </fieldset>
 
   <p class="muted">AI 호출은 앱 백엔드가 대신합니다(브라우저 직접 호출이 아니라 CORS 문제 없음). 키는 본인 PC에만 저장되며 공유하지 마세요. 공급자가 <b>도구(tool) 호출</b>을 지원해야 합니다(GLM·OpenAI 등).</p>
@@ -100,6 +105,7 @@
 const $ = id => document.getElementById(id);
 const STEP_SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 const SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+let audioCtx = null;
 
 // ---- 설정 저장/복원 (앱 설정 파일 우선 + localStorage 백업) ----
 // 키·엔드포인트는 백엔드가 사용자 설정 파일(config.json)에 저장하므로
@@ -243,8 +249,9 @@ function renderResponse(content){
     const wrap=document.createElement("div"); wrap.className="score"; out.appendChild(wrap);
     try{
       if(!window.ABCJS) throw new Error("renderer not loaded");
-      ABCJS.renderAbc(wrap, abc, {responsive:"resize"});
+      const visual=ABCJS.renderAbc(wrap, abc, {responsive:"resize"});
       if(!wrap.querySelector("svg")) throw new Error("no score");
+      addScoreTools(out, abc, visual&&visual[0]);
     }catch(e){ // 렌더 실패 시 원본 ABC를 글자로
       wrap.className=""; const pre=document.createElement("pre");
       pre.style.whiteSpace="pre-wrap"; pre.textContent=abc; wrap.appendChild(pre);
@@ -252,6 +259,175 @@ function renderResponse(content){
     last=re.lastIndex;
   }
   if(last<content.length) out.appendChild(proseNode(content.slice(last)));
+}
+
+// ---- 악보 도구 모음: 들어보기(오디오)·ABC 복사·MusicXML 내보내기 ----
+function mkBtn(t){ const b=document.createElement("button"); b.type="button"; b.className="stbtn"; b.textContent=t; return b; }
+function downloadFile(text, name, type){
+  const blob=new Blob([text],{type:type||"text/plain"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a);
+  a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function addScoreTools(container, abc, tune){
+  const bar=document.createElement("div"); bar.className="scoretools";
+  // 들어보기 (abcjs 신스 — 음원 폰트는 온라인에서 받아옴; LLM처럼 인터넷 필요)
+  if(tune && window.ABCJS && ABCJS.synth && ABCJS.synth.supportsAudio && ABCJS.synth.supportsAudio()){
+    const play=mkBtn("▶ 들어보기"); let synth=null, playing=false;
+    play.onclick=async()=>{
+      try{
+        if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+        if(audioCtx.state==="suspended") await audioCtx.resume();
+        if(playing){ synth.stop(); playing=false; play.textContent="▶ 들어보기"; return; }
+        if(!synth){ synth=new ABCJS.synth.CreateSynth(); await synth.init({audioContext:audioCtx, visualObj:tune}); await synth.prime(); }
+        await synth.start(); playing=true; play.textContent="⏹ 정지";
+      }catch(e){ play.textContent="재생 불가"; play.disabled=true; }
+    };
+    bar.appendChild(play);
+  }
+  const cp=mkBtn("ABC 복사");
+  cp.onclick=async()=>{ try{ await navigator.clipboard.writeText(abc); cp.textContent="복사됨"; setTimeout(()=>cp.textContent="ABC 복사",1200);}catch(_){ cp.textContent="복사 실패"; } };
+  bar.appendChild(cp);
+  const mx=mkBtn("MusicXML 내보내기");
+  mx.onclick=()=>{ try{ downloadFile(abcToMusicXml(abc),"sojeong.musicxml","application/vnd.recordare.musicxml+xml"); }
+    catch(e){ alert("MusicXML 변환 실패("+e.message+").\n이 악보는 'ABC 복사'로 가져가세요."); } };
+  bar.appendChild(mx);
+  container.appendChild(bar);
+}
+
+// ---- ABC → MusicXML (베타: Finale 가져오기용). 지원 못 하는 기보는 예외를 던져
+//      'ABC 복사'로 대체하게 한다(틀린 악보를 내보내느니 안 내보낸다). ----
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function parseKey(v){
+  const t=(v||"C").trim(); const m=t.match(/^([A-Ga-g])([#b]?)\s*([A-Za-z]*)/);
+  if(!m) return {fifths:0};
+  let f={C:0,G:1,D:2,A:3,E:4,B:5,F:-1}[m[1].toUpperCase()]; if(f==null)f=0;
+  if(m[2]==="#")f+=7; else if(m[2]==="b")f-=7;
+  const mode=(m[3]||"").toLowerCase().slice(0,3);
+  const adj={maj:0,ion:0,min:-3,aeo:-3,dor:-2,mix:-1,phr:-4,lyd:1,loc:-5,m:-3};
+  if(adj[mode]!=null)f+=adj[mode];
+  while(f>7)f-=12; while(f<-7)f+=12;
+  return {fifths:f};
+}
+function keyAlters(fifths){
+  const sharp=["F","C","G","D","A","E","B"], flat=["B","E","A","D","G","C","F"], m={};
+  if(fifths>0) for(let i=0;i<fifths&&i<7;i++) m[sharp[i]]=1;
+  else if(fifths<0) for(let i=0;i<(-fifths)&&i<7;i++) m[flat[i]]=-1;
+  return m;
+}
+function readNote(s,i){
+  let hasAcc=false,a=0,nat=false;
+  while(i<s.length && "^_=".includes(s[i])){ hasAcc=true; if(s[i]==="^")a++; else if(s[i]==="_")a--; else nat=true; i++; }
+  if(nat)a=0;
+  const letter=s[i]; if(!letter||!/[A-Ga-g]/.test(letter)) throw new Error("음표 파싱");
+  i++; let octave=(letter===letter.toLowerCase())?5:4;
+  while(i<s.length && (s[i]==="'"||s[i]===",")){ if(s[i]==="'")octave++; else octave--; i++; }
+  return {letter:letter.toUpperCase(), octave, hasAcc, alter:a, next:i};
+}
+function readDuration(s,i){
+  let num=1,den=1,mn=""; while(i<s.length&&/\d/.test(s[i])){ mn+=s[i]; i++; }
+  if(mn)num=parseInt(mn,10);
+  if(s[i]==="/"){ let sl=0; while(s[i]==="/"){sl++;i++;} let dn=""; while(i<s.length&&/\d/.test(s[i])){dn+=s[i];i++;}
+    den=dn?parseInt(dn,10):Math.pow(2,sl); }
+  return {num,den,next:i};
+}
+function durTypeDots(quarters){
+  const map=[[4,"whole",0],[6,"whole",1],[3,"half",1],[2,"half",0],[1.5,"quarter",1],[1,"quarter",0],
+    [0.75,"eighth",1],[0.5,"eighth",0],[0.375,"16th",1],[0.25,"16th",0],[0.1875,"32nd",1],[0.125,"32nd",0],[0.0625,"64th",0]];
+  for(const [q,t,d] of map) if(Math.abs(quarters-q)<1e-6) return {type:t,dots:d};
+  return null;
+}
+function noteXml(n, dur, ctx, measAcc, isChord){
+  const key=n.letter+n.octave; let alter;
+  if(n.hasAcc){ alter=n.alter; measAcc[key]=n.alter; }
+  else if(key in measAcc){ alter=measAcc[key]; }
+  else alter=(n.letter in ctx.kAlt)?ctx.kAlt[n.letter]:0;
+  const dv=Math.round(ctx.L[0]*dur.num*4*ctx.divisions/(ctx.L[1]*dur.den));
+  const quarters=(ctx.L[0]*dur.num*4)/(ctx.L[1]*dur.den);
+  const td=durTypeDots(quarters);
+  let x='   <note>\n'; if(isChord) x+='    <chord/>\n';
+  x+='    <pitch><step>'+n.letter+'</step>'+(alter?'<alter>'+alter+'</alter>':'')+'<octave>'+n.octave+'</octave></pitch>\n';
+  x+='    <duration>'+dv+'</duration>\n';
+  if(td){ x+='    <type>'+td.type+'</type>\n'; for(let k=0;k<td.dots;k++) x+='    <dot/>\n'; }
+  if(n.hasAcc){ const an={"1":"sharp","-1":"flat","2":"double-sharp","-2":"flat-flat","0":"natural"}[String(n.alter)]; if(an)x+='    <accidental>'+an+'</accidental>\n'; }
+  x+='   </note>\n'; return x;
+}
+function restXml(dur, ctx){
+  const dv=Math.round(ctx.L[0]*dur.num*4*ctx.divisions/(ctx.L[1]*dur.den));
+  const td=durTypeDots((ctx.L[0]*dur.num*4)/(ctx.L[1]*dur.den));
+  let x='   <note>\n    <rest/>\n    <duration>'+dv+'</duration>\n';
+  if(td){ x+='    <type>'+td.type+'</type>\n'; for(let k=0;k<td.dots;k++) x+='    <dot/>\n'; }
+  return x+'   </note>\n';
+}
+function tokenizeVoice(s, ctx){
+  const measures=[]; let cur=[], measAcc={}; let i=0;
+  const push=()=>{ measures.push(cur.join("")); cur=[]; measAcc={}; };
+  while(i<s.length){
+    const c=s[i];
+    if(c===" "||c==="\t"||c==="\\"){ i++; continue; }
+    if(c===">"||c==="<") throw new Error("브로큰 리듬(>,<)");
+    if(c==="{") throw new Error("꾸밈음 {}");
+    if(c==="("){ if(/\d/.test(s[i+1]||"")) throw new Error("잇단음표"); i++; continue; } // 슬러 시작 무시
+    if(c===")"){ i++; continue; }
+    if(c==="-"){ i++; continue; } // 타이는 단순화(음 유지)
+    if(c==="!"){ const j=s.indexOf("!",i+1); if(j<0)throw new Error("기보(!)"); i=j+1; continue; }
+    if(c==='"'){ const j=s.indexOf('"',i+1); if(j<0)throw new Error('기보(")'); i=j+1; continue; }
+    if(c==="|"){ i++; while(i<s.length&&(s[i]==="|"||s[i]==="]"||s[i]===":"))i++; if(cur.length)push(); continue; }
+    if(c===":"){ i++; while(i<s.length&&(s[i]===":"||s[i]==="|"))i++; if(cur.length)push(); continue; }
+    if(c==="]"){ i++; continue; }
+    if(c==="["){
+      if(/^\[[A-Za-z]:/.test(s.slice(i))){ const j=s.indexOf("]",i); if(j<0)throw new Error("인라인 필드"); i=j+1; continue; }
+      const j=s.indexOf("]",i); if(j<0) throw new Error("화음 [ ]");
+      const inner=s.slice(i+1,j); i=j+1; const dur=readDuration(s,i); i=dur.next;
+      let k=0, first=true;
+      while(k<inner.length){ if(inner[k]===" "){k++;continue;} const n=readNote(inner,k); k=n.next; cur.push(noteXml(n,dur,ctx,measAcc,!first)); first=false; }
+      continue;
+    }
+    if(c==="z"||c==="Z"||c==="x"){ i++; const dur=readDuration(s,i); i=dur.next; cur.push(restXml(dur,ctx)); continue; }
+    if(/[A-Ga-g]/.test(c)){ const n=readNote(s,i); i=n.next; const dur=readDuration(s,i); i=dur.next; cur.push(noteXml(n,dur,ctx,measAcc,false)); continue; }
+    throw new Error("미지원 기호 '"+c+"'");
+  }
+  if(cur.length) push();
+  if(measures.length===0) measures.push("");
+  return measures;
+}
+function abcToMusicXml(abc){
+  const lines=abc.split(/\r?\n/);
+  let mb=4,mt=4,L=null,fifths=0,title="sojeongcompose";
+  const voices={}, order=[]; let curV="1";
+  const ensure=v=>{ if(!voices[v]){voices[v]=[];order.push(v);} };
+  for(const raw of lines){
+    const line=raw.trim(); if(!line||line.startsWith("%")) continue;
+    const hm=line.match(/^([A-Za-z]):\s*(.*)$/);
+    if(hm && hm[1].length===1 && "XTMLKVQWwsZNORrPIidU".includes(hm[1])){
+      const f=hm[1], v=hm[2].trim();
+      if(f==="M"){ if(/^C\|/.test(v)){mb=2;mt=2;} else if(/^C/.test(v)){mb=4;mt=4;} else {const m=v.match(/(\d+)\s*\/\s*(\d+)/); if(m){mb=+m[1];mt=+m[2];}} }
+      else if(f==="L"){ const m=v.match(/(\d+)\s*\/\s*(\d+)/); if(m)L=[+m[1],+m[2]]; }
+      else if(f==="K"){ fifths=parseKey(v).fifths; }
+      else if(f==="T"){ if(v)title=v; }
+      else if(f==="V"){ curV=(v.split(/\s+/)[0]||"1"); ensure(curV); }
+      continue;
+    }
+    ensure(curV); voices[curV].push(line);
+  }
+  if(order.length===0) ensure("1");
+  if(!L) L=(mb/mt<0.75)?[1,16]:[1,8];
+  const divisions=768, kAlt=keyAlters(fifths), ctx={L,divisions,kAlt};
+  const parts=order.map((vid,idx)=>({id:"P"+(idx+1), measures:tokenizeVoice((voices[vid]||[]).join(" "), ctx)}));
+  let xml='<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml+='<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n';
+  xml+='<score-partwise version="3.1">\n <work><work-title>'+esc(title)+'</work-title></work>\n <part-list>\n';
+  parts.forEach(p=>{ xml+='  <score-part id="'+p.id+'"><part-name>'+p.id+'</part-name></score-part>\n'; });
+  xml+=' </part-list>\n';
+  parts.forEach(p=>{
+    xml+=' <part id="'+p.id+'">\n';
+    p.measures.forEach((m,mi)=>{
+      xml+='  <measure number="'+(mi+1)+'">\n';
+      if(mi===0){ xml+='   <attributes>\n    <divisions>'+divisions+'</divisions>\n    <key><fifths>'+fifths+'</fifths></key>\n    <time><beats>'+mb+'</beats><beat-type>'+mt+'</beat-type></time>\n    <clef><sign>G</sign><line>2</line></clef>\n   </attributes>\n'; }
+      xml+=m; xml+='  </measure>\n';
+    });
+    xml+=' </part>\n';
+  });
+  return xml+'</score-partwise>\n';
 }
 
 // ---- API 호출 (백엔드 에이전트 루프; 피드백으로 이어가기 지원) ----
