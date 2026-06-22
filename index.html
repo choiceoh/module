@@ -61,10 +61,10 @@
 
   <fieldset>
     <legend>1. Finale 파일 + 곡 설명</legend>
-    <label>Finale에서 내보낸 MusicXML 파일 (.xml / .mxl)</label>
+    <label>악보 파일 (.xml / .mxl, 또는 Finale <b>.musx</b> — 실험적)</label>
     <div id="drop" class="drop">여기로 파일을 끌어다 놓거나 클릭해서 선택<br>
-      <span class="muted">⚠ Finale의 <b>.musx</b>는 안 됨 → <b>파일 → MusicXML 내보내기</b>로 <b>.xml</b> 또는 <b>.mxl</b>(압축) 만들어 넣기</span></div>
-    <input id="file" type="file" accept=".xml,.musicxml,.mxl" style="display:none">
+      <span class="muted">권장: Finale <b>파일 → MusicXML 내보내기</b>(.xml/.mxl). <b>.musx</b>는 자체 변환기 <b>1단계(디코딩)</b> 검증 중 — 넣으면 EnigmaXML 추출을 시험합니다.</span></div>
+    <input id="file" type="file" accept=".xml,.musicxml,.mxl,.musx" style="display:none">
     <div id="fileInfo" class="muted"></div>
     <label style="margin-top:10px">곡 특성·배경(악상) <span class="muted">(분위기·의도 등 참고 맥락 — AI가 융통성 있게 활용)</span></label>
     <textarea id="intent" rows="3" placeholder="예) 계면조의 애절한 정서. 도입은 정적이다가 후반으로 갈수록 격해지는 흐름. 해금의 농현(요성)을 살리고 싶음. (조·장단도 악보로 안 읽히면 여기 적어주세요.)"></textarea>
@@ -128,6 +128,7 @@ loadCfg();
 
 // ---- 파일 처리 ----
 let parsedSummary = "";
+let lastEnigmaXml = ""; // .musx 디코딩 결과(1단계 검증용)
 const drop=$("drop"), fileInput=$("file");
 drop.onclick=()=>fileInput.click();
 drop.ondragover=e=>{e.preventDefault();drop.classList.add("hl");};
@@ -137,9 +138,25 @@ fileInput.onchange=()=>{ if(fileInput.files[0]) readFile(fileInput.files[0]); };
 
 async function readFile(file){
   const nm=file.name.toLowerCase();
-  if(/\.(musx|mus)$/.test(nm)){
-    $("fileInfo").innerHTML='<span class="err">.musx 는 <b>Finale 전용 파일</b>이라 직접 못 읽어요. Finale에서 <b>파일 → MusicXML 내보내기</b>로 <b>.xml</b> 또는 <b>.mxl</b>을 만들어 넣으세요.</span>';
+  if(/\.mus$/.test(nm)){ // 구형 .mus 는 다른(비ZIP) 포맷 — 미지원
+    $("fileInfo").innerHTML='<span class="err">구형 <b>.mus</b> 는 미지원입니다. Finale에서 <b>MusicXML 내보내기</b>(.xml/.mxl)로 넣으세요.</span>';
     parsedSummary=""; return;
+  }
+  if(/\.musx$/.test(nm)){ // Finale .musx → EnigmaXML 디코딩(변환기 1단계)
+    try{
+      $("fileInfo").textContent="Finale .musx 디코딩 중…";
+      const enigma=await musxToEnigmaXml(await file.arrayBuffer());
+      lastEnigmaXml=enigma; parsedSummary=""; // MusicXML 변환(2단계)은 아직
+      const looksXml=/<\?xml|<[A-Za-z]/.test(enigma);
+      $("fileInfo").innerHTML='✓ '+file.name+' — EnigmaXML 추출 '+(looksXml?'성공':'(검증 필요)')+
+        ' ('+enigma.length.toLocaleString()+'자) <button type="button" class="stbtn" id="dlEnigma">EnigmaXML 내려받기</button>'+
+        '<br><span class="muted">⚙ .musx→MusicXML 변환기 <b>1단계(디코딩)</b> 검증용 — 받은 파일이 유효한 Finale XML인지 확인해 주세요. 악보 입력용 MusicXML 변환은 다음 단계입니다.</span>';
+      const b=$("dlEnigma"); if(b) b.onclick=()=>downloadFile(lastEnigmaXml, file.name.replace(/\.musx$/i,"")+".enigmaxml","application/xml");
+    }catch(err){
+      parsedSummary=""; lastEnigmaXml="";
+      $("fileInfo").innerHTML='<span class="err">.musx 디코딩 실패: '+err.message+'</span><br><span class="muted">Finale의 <b>MusicXML 내보내기</b>(.xml/.mxl)로 넣으시면 바로 됩니다.</span>';
+    }
+    return;
   }
   try{
     let xmlText;
@@ -159,14 +176,13 @@ async function readFile(file){
   }
 }
 
-// .mxl(압축 MusicXML = ZIP) → 내부 MusicXML 텍스트. 외부 라이브러리 없이
-// ZIP 구조를 직접 파싱하고 브라우저 내장 DecompressionStream(deflate-raw)으로 해제.
-async function extractMxl(buf){
+// ZIP 파서(외부 라이브러리 없이, 브라우저 내장 DecompressionStream 사용).
+// .mxl(압축 MusicXML)·.musx(Finale) 둘 다 ZIP 컨테이너라 공용으로 쓴다.
+function zipList(buf){
   const dv=new DataView(buf), bytes=new Uint8Array(buf), td=new TextDecoder();
-  // EOCD(End Of Central Directory) 찾기
-  let eocd=-1;
+  let eocd=-1; // EOCD(End Of Central Directory)
   for(let i=buf.byteLength-22;i>=0;i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
-  if(eocd<0) throw new Error(".mxl(ZIP) 구조를 찾지 못함");
+  if(eocd<0) throw new Error("ZIP 구조를 찾지 못함");
   const count=dv.getUint16(eocd+10,true), cdOff=dv.getUint32(eocd+16,true);
   const entries=[]; let p=cdOff;
   for(let i=0;i<count;i++){
@@ -178,24 +194,53 @@ async function extractMxl(buf){
     entries.push({name,method,compSize,lOff});
     p+=46+nLen+eLen+cLen;
   }
-  const read=async(e)=>{
-    if(dv.getUint32(e.lOff,true)!==0x04034b50) throw new Error("ZIP 로컬 헤더 오류");
-    const nLen=dv.getUint16(e.lOff+26,true), eLen=dv.getUint16(e.lOff+28,true);
-    const start=e.lOff+30+nLen+eLen, comp=bytes.subarray(start,start+e.compSize);
-    if(e.method===0) return td.decode(comp);
-    if(e.method===8){
-      const s=new Blob([comp]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-      return td.decode(await new Response(s).arrayBuffer());
-    }
-    throw new Error("지원하지 않는 압축 방식("+e.method+")");
-  };
-  // META-INF/container.xml 의 rootfile 우선, 없으면 첫 .xml
+  return {dv,bytes,entries};
+}
+// ZIP 항목을 바이트(Uint8Array)로 해제. stored(0)/deflate-raw(8) 지원.
+async function zipReadBytes(z,e){
+  if(z.dv.getUint32(e.lOff,true)!==0x04034b50) throw new Error("ZIP 로컬 헤더 오류");
+  const nLen=z.dv.getUint16(e.lOff+26,true), eLen=z.dv.getUint16(e.lOff+28,true);
+  const start=e.lOff+30+nLen+eLen, comp=z.bytes.subarray(start,start+e.compSize);
+  if(e.method===0) return comp.slice(); // 복사(이후 in-place 변형 대비)
+  if(e.method===8){
+    const s=new Blob([comp]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+  throw new Error("지원하지 않는 압축 방식("+e.method+")");
+}
+// .mxl(압축 MusicXML) → 내부 MusicXML 텍스트.
+async function extractMxl(buf){
+  const z=zipList(buf), td=new TextDecoder();
   let target=null;
-  const cont=entries.find(e=>e.name==="META-INF/container.xml");
-  if(cont){ const m=(await read(cont)).match(/full-path\s*=\s*"([^"]+)"/); if(m) target=entries.find(e=>e.name===m[1]); }
-  if(!target) target=entries.find(e=>!e.name.startsWith("META-INF/")&&/\.(xml|musicxml)$/i.test(e.name));
+  const cont=z.entries.find(e=>e.name==="META-INF/container.xml");
+  if(cont){ const m=td.decode(await zipReadBytes(z,cont)).match(/full-path\s*=\s*"([^"]+)"/); if(m) target=z.entries.find(e=>e.name===m[1]); }
+  if(!target) target=z.entries.find(e=>!e.name.startsWith("META-INF/")&&/\.(xml|musicxml)$/i.test(e.name));
   if(!target) throw new Error(".mxl 안에서 MusicXML을 찾지 못함");
-  return await read(target);
+  return td.decode(await zipReadBytes(z,target));
+}
+
+// ── Finale .musx → EnigmaXML 디코딩 (변환기 1단계) ──────────────────────
+// .musx = ZIP. 그 안 score.dat = XOR 난독화 + gzip 된 EnigmaXML.
+// 알고리즘 출처(MIT, byte 단위 교차검증): rpatters1/denigma · joris-vaneyghen/musx2mxl.
+// 32비트 LCG(BSD/glibc rand) 키스트림으로 XOR, 13만 바이트마다 시드 리셋.
+function denigmaDecode(buf){
+  const SEED=0x28006D45, RESET=0x20000;
+  let state=SEED;
+  for(let i=0;i<buf.length;i++){
+    if(i % RESET === 0) state=SEED;
+    state=(Math.imul(state,0x41C64E6D)+0x3039)>>>0; // Math.imul 로 32비트 곱 정확히
+    const upper=state>>>16;
+    buf[i]^=(upper + ((upper/255)|0)) & 0xFF;
+  }
+  return buf;
+}
+async function musxToEnigmaXml(buf){
+  const z=zipList(buf);
+  const sd=z.entries.find(e=>e.name==="score.dat");
+  if(!sd) throw new Error("Finale .musx 형식이 아닙니다(score.dat 없음)");
+  const data=denigmaDecode(await zipReadBytes(z,sd)); // 난독화 해제
+  const s=new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new TextDecoder().decode(await new Response(s).arrayBuffer()); // gunzip → EnigmaXML
 }
 
 // ---- MusicXML → 요약 ----
