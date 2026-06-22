@@ -85,6 +85,8 @@ MusicXML/EnigmaXML 내려받기.
 - ✅ 2단계 EnigmaXML→MusicXML — 구현 + **실제 musxdom 샘플로 Node 검증**(음높이·음길이·
   조표·다보표·타이·잇단음표). `.musx` → AI 입력 + MusicXML 내려받기 연결.
 - ✅ 3단계 다층 레이어 + 레이어 내 v1/v2 + 정밀 잇단음표 — 구현·검증.
+- ✅ 악기 이름 — `staffSpec.fullName → textBlock.textID → blockText`(enigma 서식코드 제거)로
+  파트명에 실제 악기명(Oboe·Violin 등). AI 입력 요약이 "Staff 1" 대신 악기명으로.
 - ⏳ 다음: 셈여림·가사·아티큘레이션·타악기·복합박·이조악기(표기음).
 
 ### 개발자용 — 회귀 테스트
