@@ -267,7 +267,7 @@ function enigmaToMusicXml(enigma){
   const entries={};
   for(const e of A("entry")) entries[e.getAttribute("entnum")]={
     num:e.getAttribute("entnum"), next:e.getAttribute("next"),
-    dura:parseInt(mxText(e,"dura")||"0",10), isNote:mxHas(e,"isNote"),
+    dura:parseInt(mxText(e,"dura")||"0",10), isNote:mxHas(e,"isNote"), v2:mxHas(e,"v2"),
     notes:mxKids(e,"note").map(n=>({harmLev:parseInt(mxText(n,"harmLev")||"0",10),harmAlt:parseInt(mxText(n,"harmAlt")||"0",10),tieStart:mxHas(n,"tieStart"),tieEnd:mxHas(n,"tieEnd")})) };
   const tuplets={};
   for(const t of A("tupletDef")) tuplets[t.getAttribute("entnum")]={symNum:parseInt(mxText(t,"symbolicNum")||"0",10),symDur:parseInt(mxText(t,"symbolicDur")||"0",10),refNum:parseInt(mxText(t,"refNum")||"0",10),refDur:parseInt(mxText(t,"refDur")||"0",10)};
@@ -314,15 +314,21 @@ function enigmaToMusicXml(enigma){
       if(mi===0){ const clef=(h&&h.clefID===3)?'<sign>F</sign><line>4</line>':'<sign>G</sign><line>2</line>';
         body+='   <attributes><divisions>'+DIV+'</divisions><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time><clef>'+clef+'</clef></attributes>\n'; }
       else if(h){ body+='   <attributes><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time></attributes>\n'; }
-      // 레이어(frame1~4) → voice. 두 번째부터는 <backup>으로 마디 처음으로 되감기.
-      let firstLayer=true, prevTotal=0;
+      // 레이어(frame1~4) + 레이어 내부 v1/v2(<v2/>) → 각각 voice. 둘째 스트림부터 <backup>.
+      const streams=[];
       (h?h.f:[]).forEach((fc,li)=>{
         if(!fc||!frames[fc]) return;
-        const ents=walk(fc); if(!ents.length) return;
-        if(!firstLayer) body+='   <backup><duration>'+prevTotal+'</duration></backup>\n';
-        const r=renderLayer(ents,meas,li+1); body+=r.xml; prevTotal=r.total; firstLayer=false;
+        const all=walk(fc); if(!all.length) return;
+        const v1=all.filter(e=>!e.v2), v2=all.filter(e=>e.v2);
+        if(v1.length) streams.push({ents:v1,voice:li*2+1});
+        if(v2.length) streams.push({ents:v2,voice:li*2+2});
       });
-      if(firstLayer) body+='   <note><rest measure="yes"/><duration>'+(meas.beats*meas.divbeat)+'</duration><voice>1</voice></note>\n'; // 빈 마디 → 전체 쉼표
+      let firstS=true, prevTotal=0;
+      for(const sm of streams){
+        if(!firstS) body+='   <backup><duration>'+prevTotal+'</duration></backup>\n';
+        const r=renderLayer(sm.ents,meas,sm.voice); body+=r.xml; prevTotal=r.total; firstS=false;
+      }
+      if(firstS) body+='   <note><rest measure="yes"/><duration>'+(meas.beats*meas.divbeat)+'</duration><voice>1</voice></note>\n'; // 빈 마디 → 전체 쉼표
       body+='  </measure>\n';
     });
     body+=' </part>\n';
