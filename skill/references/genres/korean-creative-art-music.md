@@ -18,7 +18,8 @@
 - **4·5도 적층**(계면조 라 위 `라-레-솔`/`라-미`), **드론/페달** 위 모드 운용,
   **병행 화음**으로 으뜸 중력 흐리기.
 - **시김새음(농현·꺾음)은 화음 구성음으로 박지 말 것** — 화음은 골격음에만.
-- 비평균율 마찰을 음향 자원으로. (구체 보이싱·종지 처리 → 상세 문서.)
+- 비평균율 마찰을 음향 자원으로. **토리/선법별 구체 종지형·보이싱 처방**은
+  `references/genres/creative-art-music/cadence-and-voicing.md`.
 
 ## 2. 시김새가 *들리는* 텍스처 → `creative-art-music/sigimsae-texture.md`
 - 시김새 성부 **주변을 비워라**(드론/지속음/성긴 점). 한 번에 **한 곳**만 농현.
@@ -27,10 +28,14 @@
 ## 3. 장단·한배를 형식으로 → `creative-art-music/jangdan-as-form.md`
 - 장단은 박자표가 아니라 **구조 추동력**. 한배 점층(진양→자진모리)을 곡 곡선으로.
 - 각진 느낌 깨기: 비대칭·메기고받기·점층 가속·엇박. 타악은 **구문(punctuation)** 으로.
+- **장단별 구음·박·한배 실전 템플릿**(진양조~휘모리·굿거리·세마치·엇모리):
+  `references/genres/creative-art-music/jangdan-patterns.md`.
 
 ## 4. 국악관현악 — 탁함과 밸런스 → `creative-art-music/gugak-orchestration.md`
 - **저음은 한 줄로** 굵게, 화성은 중·고음역에 성기게. **유니즌 헤테로포니**가 광채.
 - **음역 분리**로 명료도. 피리·태평소 과용 금지(적어도 뚫는다).
+- **악기 음역·이조 빠른표 + 편성 레시피**(독주~관현악):
+  `references/instrument-idiom/korean/ranges-and-ensembles.md`.
 
 ## 5. 시김새·주법 기보 → `creative-art-music/notation-for-players.md`
 - 농현=물결선+폭/속도, 퇴성↓/추성↑, **진입 시점**을 박 분할로.

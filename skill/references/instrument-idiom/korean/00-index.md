@@ -36,6 +36,7 @@
 | 타 | 꽹과리·징·박·운라 | `references/instrument-idiom/korean/samul-metals.md` |
 | 성악 | 정가·판소리·민요 | `references/instrument-idiom/korean/vocals.md` |
 | **확장** | **창작·현대 표현기법(특수주법) 개요** | `references/instrument-idiom/korean/extended-techniques.md` |
+| **편성** | **음역·이조 빠른표 + 편성 레시피(독주~관현악)** | `references/instrument-idiom/korean/ranges-and-ensembles.md` |
 
 > **창작곡의 확장/현대 주법**(하모닉스·글리산도·멀티포닉스·플라터텅잉·col legno·타악적
 > 주법 등)은 위 `extended-techniques.md`(개요·공통 어휘) + **가야금·거문고·대금·피리·
