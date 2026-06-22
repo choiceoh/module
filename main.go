@@ -340,6 +340,12 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		if i < maxIters-1 {
 			payload["tools"] = tools
 			payload["tool_choice"] = "auto"
+			// GLM/Z.AI 는 스트리밍 중 tool_call 델타를 받으려면 tool_stream 이 필요하다
+			// (미설정 시 도구 호출이 스트림에 안 실려 read_doc 루프가 끊긴다). OpenAI 는
+			// 기본 스트리밍이라 불필요·미인식 필드 거부 위험이 있어 GLM 계열에만 붙인다.
+			if strings.Contains(req.BaseURL, "z.ai") || strings.Contains(req.BaseURL, "bigmodel") {
+				payload["tool_stream"] = true
+			}
 		}
 		body, _ := json.Marshal(payload)
 		send(map[string]any{"type": "progress", "msg": "생각 중…"})
@@ -438,6 +444,12 @@ func streamProvider(req uiReq, body []byte, onContent func(string)) (string, []t
 		}
 		return "", nil, fmt.Errorf("HTTP %d: %.300s", resp.StatusCode, b)
 	}
+	// 공급자가 stream:true 를 무시하고 일반 JSON 완성을 200으로 반환한 경우(event-stream
+	// 이 아님) — SSE 스캐너에 넣으면 전부 무시돼 '빈 답'이 된다. 일반 완성으로 폴백 파싱.
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "event-stream") {
+		b, _ := io.ReadAll(resp.Body)
+		return parseNonStream(b, onContent)
+	}
 	var content strings.Builder
 	var tcs []tcAccum
 	sc := bufio.NewScanner(resp.Body)
@@ -483,6 +495,46 @@ func streamProvider(req uiReq, body []byte, onContent func(string)) (string, []t
 		return content.String(), tcs, err
 	}
 	return content.String(), tcs, nil
+}
+
+// parseNonStream 은 공급자가 스트림을 무시하고 보낸 일반 JSON 완성을 파싱해
+// streamProvider 와 동일한 (content, tool_calls) 형태로 돌려준다.
+func parseNonStream(b []byte, onContent func(string)) (string, []tcAccum, error) {
+	var pr struct {
+		Choices []struct {
+			Message struct {
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(b, &pr); err != nil {
+		return "", nil, fmt.Errorf("응답 파싱 실패: %.300s", b)
+	}
+	if pr.Error != nil {
+		return "", nil, fmt.Errorf("%s", pr.Error.Message)
+	}
+	if len(pr.Choices) == 0 {
+		return "", nil, fmt.Errorf("빈 응답: %.300s", b)
+	}
+	msg := pr.Choices[0].Message
+	var tcs []tcAccum
+	for _, t := range msg.ToolCalls {
+		tcs = append(tcs, tcAccum{ID: t.ID, Name: t.Function.Name, Args: t.Function.Arguments})
+	}
+	if msg.Content != "" {
+		onContent(msg.Content)
+	}
+	return msg.Content, tcs, nil
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
