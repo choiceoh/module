@@ -50,7 +50,10 @@ try { DOMParser = require("@xmldom/xmldom").DOMParser; } catch { /* 변환 테�
 let enigmaToMusicXml = null;
 if (DOMParser) {
   global.DOMParser = DOMParser;
-  enigmaToMusicXml = new Function(convSrc + "\nreturn { enigmaToMusicXml };")().enigmaToMusicXml;
+  // esc() 는 index.html 의 다른 곳(ABC 변환부)에 정의돼 브라우저에선 스코프에 있다.
+  // 추출 평가에선 동등 정의를 주입한다.
+  const escDef = 'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}\n';
+  enigmaToMusicXml = new Function(escDef + convSrc + "\nreturn { enigmaToMusicXml };")().enigmaToMusicXml;
 }
 
 (async () => {
