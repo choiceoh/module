@@ -254,9 +254,10 @@ function mxText(el,tag){ const k=el&&mxKid(el,tag); return k? k.textContent.trim
 function mxHas(el,tag){ return !!(el&&mxKid(el,tag)); }
 function mxKeyAlter(step,fifths){ const sh=["F","C","G","D","A","E","B"],fl=["B","E","A","D","G","C","F"];
   if(fifths>0) return sh.slice(0,fifths).includes(step)?1:0; if(fifths<0) return fl.slice(0,-fifths).includes(step)?-1:0; return 0; }
-function mxPitch(harmLev,harmAlt,fifths){ // harmLev 는 으뜸음(가온다 옥타브) 기준 변위
-  const tonicOffset=((fifths*4)%7+7)%7, abs=harmLev+tonicOffset, i=((abs%7)+7)%7, step="CDEFGAB"[i];
-  return {step,octave:4+Math.floor(abs/7),alter:mxKeyAlter(step,fifths)+harmAlt}; }
+function mxPitch(harmLev,harmAlt,fifths,trans){ // harmLev=으뜸음 기준 변위; trans 있으면 이조 표기음
+  const abs=harmLev+((fifths*4)%7+7)%7+(trans?trans.interval:0), i=((abs%7)+7)%7, step="CDEFGAB"[i];
+  const wf=trans?fifths+trans.adjust:fifths; // 표기 조표(=콘서트+adjust)
+  return {step,octave:4+Math.floor(abs/7),alter:mxKeyAlter(step,wf)+harmAlt}; }
 const MX_TYPES={32768:"maxima",16384:"long",8192:"breve",4096:"whole",2048:"half",1024:"quarter",512:"eighth",256:"16th",128:"32nd",64:"64th",32:"128th",16:"256th"};
 function mxTypeDots(edu){ let top=1; while(top*2<=edu) top*=2; let dots=0,rem=edu-top,d=top;
   while(rem>0){ d=Math.floor(d/2); if(d>0&&rem>=d){dots++;rem-=d;} else break; } return {type:MX_TYPES[top]||"quarter",dots}; }
@@ -282,12 +283,12 @@ function enigmaToMusicXml(enigma){
   // 악기 이름: staffSpec.fullName → textBlock.textID → blockText(number), enigma 서식코드 제거
   const tbID={}; for(const tb of A("textBlock")) tbID[tb.getAttribute("cmper")]=mxText(tb,"textID");
   const btNum={}; for(const bt of A("blockText")) btNum[bt.getAttribute("number")]=(bt.textContent||"").replace(/\^[A-Za-z]+\([^)]*\)/g,"").trim();
-  const sFull={}, sPerc={}; for(const sp of A("staffSpec")){ const fn=mxText(sp,"fullName"); if(fn) sFull[sp.getAttribute("cmper")]=fn; if(mxText(sp,"notationStyle")==="percussion") sPerc[sp.getAttribute("cmper")]=true; }
+  const sFull={}, sPerc={}, sTrans={}; for(const sp of A("staffSpec")){ const fn=mxText(sp,"fullName"); if(fn) sFull[sp.getAttribute("cmper")]=fn; if(mxText(sp,"notationStyle")==="percussion") sPerc[sp.getAttribute("cmper")]=true; const tr=mxKid(sp,"transposition"), ks=tr&&mxKid(tr,"keysig"); if(ks) sTrans[sp.getAttribute("cmper")]={interval:parseInt(mxText(ks,"interval")||"0",10),adjust:parseInt(mxText(ks,"adjust")||"0",10)}; }
   const instName=sc=>{ const fn=sFull[sc]; if(!fn) return "Staff "+sc; return btNum[tbID[fn]]||("Staff "+sc); };
   const DIV=1024;
   const walk=fc=>{ const fr=frames[fc]; if(!fr) return []; const o=[]; let c=fr.start,g=0; while(c&&c!=="0"&&entries[c]&&g++<10000){ o.push(entries[c]); if(c===fr.end) break; c=entries[c].next; } return o; };
   // 한 레이어(frame)의 entry들을 voice 번호로 렌더. {xml,total(EDU)} 반환.
-  const renderLayer=(ents,meas,voiceNum,perc)=>{
+  const renderLayer=(ents,meas,voiceNum,perc,trans)=>{
     let xml="",total=0,tupLeft=0,tr=null,tupBudget=0,symTotal=0,tupAcc=0;
     for(const en of ents){
       if(tuplets[en.num]){ tr=tuplets[en.num]; tupLeft=tr.symNum*tr.symDur; symTotal=tr.symNum*tr.symDur; tupBudget=tr.refNum*tr.refDur; tupAcc=0; }
@@ -307,7 +308,7 @@ function enigmaToMusicXml(enigma){
         let head;
         if(perc){ const i=((nt.harmLev%7)+7)%7; // 타악: 음높이 대신 보표 위치(unpitched)
           head='<unpitched><display-step>'+"CDEFGAB"[i]+'</display-step><display-octave>'+(4+Math.floor(nt.harmLev/7))+'</display-octave></unpitched>'; }
-        else { const p=mxPitch(nt.harmLev,nt.harmAlt,meas.fifths);
+        else { const p=mxPitch(nt.harmLev,nt.harmAlt,meas.fifths,trans);
           head='<pitch><step>'+p.step+'</step>'+(p.alter?'<alter>'+p.alter+'</alter>':'')+'<octave>'+p.octave+'</octave></pitch>'; }
         xml+='   <note>'+(ni>0?'<chord/>':'')+head+'<duration>'+dur+'</duration>'+tie+v+'<type>'+td.type+'</type>'+dots+tm+(tied?'<notations>'+tied+'</notations>':'')+'</note>\n'; });
     }
@@ -315,7 +316,7 @@ function enigmaToMusicXml(enigma){
   };
   let pl="",body="";
   staves.forEach((st,si)=>{
-    const perc=sPerc[st];
+    const perc=sPerc[st], trans=sTrans[st], kf=m=>trans?m.fifths+trans.adjust:m.fifths;
     const pid="P"+(si+1);
     pl+='  <score-part id="'+pid+'"><part-name>'+esc(instName(st))+'</part-name></score-part>\n';
     body+=' <part id="'+pid+'">\n';
@@ -323,8 +324,8 @@ function enigmaToMusicXml(enigma){
       body+='  <measure number="'+(mi+1)+'">\n';
       const h=gf[st+":"+meas.cmper], den=Math.round(4096/meas.divbeat);
       if(mi===0){ const clef=perc?'<sign>percussion</sign>':(h&&h.clefID===3)?'<sign>F</sign><line>4</line>':'<sign>G</sign><line>2</line>';
-        body+='   <attributes><divisions>'+DIV+'</divisions><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time><clef>'+clef+'</clef></attributes>\n'; }
-      else if(h){ body+='   <attributes><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time></attributes>\n'; }
+        body+='   <attributes><divisions>'+DIV+'</divisions><key><fifths>'+kf(meas)+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time><clef>'+clef+'</clef></attributes>\n'; }
+      else if(h){ body+='   <attributes><key><fifths>'+kf(meas)+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time></attributes>\n'; }
       // 레이어(frame1~4) + 레이어 내부 v1/v2(<v2/>) → 각각 voice. 둘째 스트림부터 <backup>.
       const streams=[];
       (h?h.f:[]).forEach((fc,li)=>{
@@ -337,7 +338,7 @@ function enigmaToMusicXml(enigma){
       let firstS=true, prevTotal=0;
       for(const sm of streams){
         if(!firstS) body+='   <backup><duration>'+prevTotal+'</duration></backup>\n';
-        const r=renderLayer(sm.ents,meas,sm.voice,perc); body+=r.xml; prevTotal=r.total; firstS=false;
+        const r=renderLayer(sm.ents,meas,sm.voice,perc,trans); body+=r.xml; prevTotal=r.total; firstS=false;
       }
       if(firstS) body+='   <note><rest measure="yes"/><duration>'+(meas.beats*meas.divbeat)+'</duration><voice>1</voice></note>\n'; // 빈 마디 → 전체 쉼표
       body+='  </measure>\n';
