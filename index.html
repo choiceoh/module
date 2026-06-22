@@ -281,6 +281,28 @@ function enigmaToMusicXml(enigma){
   const staves=[...ss].sort((a,b)=>a-b); if(!staves.length) staves.push(1);
   const DIV=1024;
   const walk=fc=>{ const fr=frames[fc]; if(!fr) return []; const o=[]; let c=fr.start,g=0; while(c&&c!=="0"&&entries[c]&&g++<10000){ o.push(entries[c]); if(c===fr.end) break; c=entries[c].next; } return o; };
+  // 한 레이어(frame)의 entry들을 voice 번호로 렌더. {xml,total(EDU)} 반환.
+  const renderLayer=(ents,meas,voiceNum)=>{
+    let xml="",total=0,tupLeft=0,tr=null,tupBudget=0,symTotal=0,tupAcc=0;
+    for(const en of ents){
+      if(tuplets[en.num]){ tr=tuplets[en.num]; tupLeft=tr.symNum*tr.symDur; symTotal=tr.symNum*tr.symDur; tupBudget=tr.refNum*tr.refDur; tupAcc=0; }
+      let dur=en.dura,tm="";
+      if(tupLeft>0&&tr){
+        tm='<time-modification><actual-notes>'+tr.symNum+'</actual-notes><normal-notes>'+tr.refNum+'</normal-notes></time-modification>';
+        tupLeft-=en.dura;
+        if(tupLeft<=0){ dur=tupBudget-tupAcc; tr=null; } // 마지막 음에 잔여(합 정확)
+        else { dur=Math.round(en.dura*tupBudget/symTotal); tupAcc+=dur; }
+      }
+      total+=dur;
+      const td=mxTypeDots(en.dura), dots='<dot/>'.repeat(td.dots), v='<voice>'+voiceNum+'</voice>';
+      if(!en.isNote){ xml+='   <note><rest/><duration>'+dur+'</duration>'+v+'<type>'+td.type+'</type>'+dots+'</note>\n'; continue; }
+      en.notes.forEach((nt,ni)=>{ const p=mxPitch(nt.harmLev,nt.harmAlt,meas.fifths);
+        const tie=(nt.tieStart?'<tie type="start"/>':'')+(nt.tieEnd?'<tie type="stop"/>':'');
+        const tied=(nt.tieStart?'<tied type="start"/>':'')+(nt.tieEnd?'<tied type="stop"/>':'');
+        xml+='   <note>'+(ni>0?'<chord/>':'')+'<pitch><step>'+p.step+'</step>'+(p.alter?'<alter>'+p.alter+'</alter>':'')+'<octave>'+p.octave+'</octave></pitch><duration>'+dur+'</duration>'+tie+v+'<type>'+td.type+'</type>'+dots+tm+(tied?'<notations>'+tied+'</notations>':'')+'</note>\n'; });
+    }
+    return {xml,total};
+  };
   let pl="",body="";
   staves.forEach((st,si)=>{
     const pid="P"+(si+1);
@@ -292,18 +314,15 @@ function enigmaToMusicXml(enigma){
       if(mi===0){ const clef=(h&&h.clefID===3)?'<sign>F</sign><line>4</line>':'<sign>G</sign><line>2</line>';
         body+='   <attributes><divisions>'+DIV+'</divisions><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time><clef>'+clef+'</clef></attributes>\n'; }
       else if(h){ body+='   <attributes><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time></attributes>\n'; }
-      const ents=h?walk(h.f[0]):[]; let tupLeft=0,tr=null; // 레이어1(frame1)만 — 다층은 다음 단계
-      for(const en of ents){
-        if(tuplets[en.num]){ tr=tuplets[en.num]; tupLeft=tr.symNum*tr.symDur; }
-        let dur=en.dura,tm="";
-        if(tupLeft>0&&tr){ dur=Math.round(en.dura*(tr.refNum*tr.refDur)/(tr.symNum*tr.symDur)); tm='<time-modification><actual-notes>'+tr.symNum+'</actual-notes><normal-notes>'+tr.refNum+'</normal-notes></time-modification>'; tupLeft-=en.dura; if(tupLeft<=0) tr=null; }
-        const td=mxTypeDots(en.dura), dots='<dot/>'.repeat(td.dots);
-        if(!en.isNote){ body+='   <note><rest/><duration>'+dur+'</duration><type>'+td.type+'</type>'+dots+'</note>\n'; continue; }
-        en.notes.forEach((nt,ni)=>{ const p=mxPitch(nt.harmLev,nt.harmAlt,meas.fifths);
-          const tie=(nt.tieStart?'<tie type="start"/>':'')+(nt.tieEnd?'<tie type="stop"/>':'');
-          const tied=(nt.tieStart?'<tied type="start"/>':'')+(nt.tieEnd?'<tied type="stop"/>':'');
-          body+='   <note>'+(ni>0?'<chord/>':'')+'<pitch><step>'+p.step+'</step>'+(p.alter?'<alter>'+p.alter+'</alter>':'')+'<octave>'+p.octave+'</octave></pitch><duration>'+dur+'</duration>'+tie+'<type>'+td.type+'</type>'+dots+tm+(tied?'<notations>'+tied+'</notations>':'')+'</note>\n'; });
-      }
+      // 레이어(frame1~4) → voice. 두 번째부터는 <backup>으로 마디 처음으로 되감기.
+      let firstLayer=true, prevTotal=0;
+      (h?h.f:[]).forEach((fc,li)=>{
+        if(!fc||!frames[fc]) return;
+        const ents=walk(fc); if(!ents.length) return;
+        if(!firstLayer) body+='   <backup><duration>'+prevTotal+'</duration></backup>\n';
+        const r=renderLayer(ents,meas,li+1); body+=r.xml; prevTotal=r.total; firstLayer=false;
+      });
+      if(firstLayer) body+='   <note><rest measure="yes"/><duration>'+(meas.beats*meas.divbeat)+'</duration><voice>1</voice></note>\n'; // 빈 마디 → 전체 쉼표
       body+='  </measure>\n';
     });
     body+=' </part>\n';
