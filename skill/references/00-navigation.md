@@ -14,7 +14,8 @@
 
 | 요청 유형 | 문서 경로(그대로 사용) |
 |---|---|
-| **창작국악 작곡(선법 화성화·시김새·장단·국악관현악·실전 처방)** | `references/genres/korean-creative-art-music.md` ★먼저(허브) → 상세는 `references/genres/creative-art-music/`(modal-harmony·sigimsae-texture·jangdan-as-form·gugak-orchestration·notation-for-players·diagnostics·lineage-and-aesthetics·composer-techniques·standard-methods·recent-trends·jangdan-patterns·cadence-and-voicing) |
+| **창작국악 작곡(선법 화성화·시김새·장단·국악관현악·실전 처방)** | `references/genres/korean-creative-art-music.md` ★먼저(허브) → 상세는 `references/genres/creative-art-music/`(modal-harmony·sigimsae-texture·jangdan-as-form·rhythm-craft·gugak-orchestration·notation-for-players·diagnostics·lineage-and-aesthetics·composer-techniques·standard-methods·recent-trends·jangdan-patterns·cadence-and-voicing) |
+| **창작국악 *리듬 작법* 깊이(소박·박·장단·각 위계·기경결해·한배 신축/밀고당기기·리듬 전개변형·복장단·무박·미시리듬·기보 함정)** | `references/genres/creative-art-music/rhythm-craft.md`(+ 형식은 `jangdan-as-form.md`, 패턴은 `jangdan-patterns.md`, 붙임새는 `standard-methods.md`) |
 | **국악기 주법·특성·편성(가야금/거문고/해금/대금/장구 등)** | `references/instrument-idiom/korean/00-index.md` ★먼저 → 해당 악기 파일 |
 | **악기 음역·이조 빠른표 + 편성 레시피(독주~관현악)** | `references/instrument-idiom/korean/ranges-and-ensembles.md` |
 | **장단 실전 템플릿(구음·박·한배)·토리별 종지·보이싱 처방** | `references/genres/creative-art-music/jangdan-patterns.md`, `references/genres/creative-art-music/cadence-and-voicing.md` |

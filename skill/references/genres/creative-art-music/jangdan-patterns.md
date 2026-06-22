@@ -74,6 +74,7 @@
 - ✗ 휘모리·엇모리를 장시간 지속(긴장이 풀리거나 피로해진다).
 
 ### 교차참조
-장단을 형식으로 `jangdan-as-form.md` · 붙임새 `standard-methods.md` · 장구 구음
+장단을 형식으로 `jangdan-as-form.md` · **리듬 작법(전개변형·밀당·복장단·무박)
+`rhythm-craft.md`** · 붙임새 `standard-methods.md` · 장구 구음
 `../../instrument-idiom/korean/janggu.md` · 산조 한배 `../sanjo/00-index.md` · 복합박
 `../../rhythm-groove/odd-meters-polyrhythm.md`
