@@ -23,9 +23,20 @@ sojeongcompose 내장 변환기. Finale가 단종(2024)되어 `.musx`를 열 수
 - 해제 순서: **난독화 해제 먼저, 그다음 gunzip**(`DecompressionStream("gzip")`).
 - 브라우저 내장만 사용: ZIP 파싱(자체)·`DecompressionStream`·`DOMParser`·`Math.imul`.
 
-### 2단계 — MusicXML 골격 (예정)
+### 2단계 — MusicXML 골격 (구현됨, `enigmaToMusicXml`)
 EnigmaXML(정규화된 entry/frame/layer 모델)을 MusicXML(마디/성부 중첩 트리)로 재조립.
-난이도 순: ① 단성 음높이+리듬 → ② 조표·박자 → ③ 다보표/다악기(part) → ④ 타이.
+**구현·검증된 것**(실제 musxdom 샘플로 Node 테스트): 단성(레이어1) 음높이+리듬, 쉼표,
+음길이(EDU 비트→type+dot), 조표(`keySig>key`=signed byte→fifths), 박자(beats/divbeat),
+음자리표(treble/bass), 다보표(part), 타이, 화음, 잇단음표(time-modification, 길이 근사).
+`.musx` 드롭 시 디코딩→변환→기존 `parseMusicXml`로 AI 입력(parsedSummary)에 연결 +
+MusicXML/EnigmaXML 내려받기.
+
+> ★ **음높이 핵심**: `harmLev`는 **으뜸음(가온다 옥타브) 기준** 변위다(C장조만 C4 기준).
+> 절대음 = `harmLev + ((fifths*4)%7+7)%7`(으뜸음 온음계 오프셋). musxdom `Entries.h`
+> 주석으로 확인, `tie_across_key` 샘플(G장조 G4 타이)로 검증.
+
+**아직(2단계 한계)**: 다층 레이어(frame2~4)·복합박·이조악기·정확한 잇단음표 정수화·
+음역 절대옥타브(실 Finale 대조 필요).
 
 ### 3단계 — 고급 기보 (예정)
 다성 레이어(`<backup>`)·잇단음표(`<time-modification>`)·가사·셈여림·아티큘레이션·**타악기**.
@@ -53,5 +64,13 @@ EnigmaXML(정규화된 entry/frame/layer 모델)을 MusicXML(마디/성부 중�
 > 독점 소스도 포함하지 않으며, 사용자 본인 파일을 **읽기만** 한다(복제 변조 없음).
 
 ## 상태
-- ✅ 1단계 디코딩 구현 — 실제 `.musx`로 **EnigmaXML 추출 검증 필요**(개발 환경에선 실행 불가).
-- ⏳ 2·3단계는 1단계가 실제 파일에서 동작 확인된 뒤 착수.
+- ✅ 1단계 디코딩 — 구현. **실제 `.musx`로 EnigmaXML 추출 검증 필요**(개발 환경 실행 불가).
+- ✅ 2단계 EnigmaXML→MusicXML — 구현 + **실제 musxdom 샘플로 Node 검증**(음높이·음길이·
+  조표·다보표·타이·잇단음표). `.musx` → AI 입력 + MusicXML 내려받기 연결.
+- ⏳ 3단계(다층 레이어·셈여림·가사·타악기·정밀 잇단음표) 예정.
+- ⚠ **실 Finale 대조 필요**: 절대 옥타브·세부 정확도는 부인 PC에서 `.musx`↔변환 결과 비교로 확정.
+
+### 개발자용 — 회귀 테스트
+`rpatters1/musxdom`의 `tests/data/*.enigmaxml`(실제 샘플)로 `enigmaToMusicXml` 검증 가능.
+Node + `@xmldom/xmldom`로 함수만 떼어 돌리면 음높이·음길이·구조를 확인할 수 있다(세션 중
+triplet·tie_across_key·slur·layers 등으로 확인).

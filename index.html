@@ -61,9 +61,9 @@
 
   <fieldset>
     <legend>1. Finale 파일 + 곡 설명</legend>
-    <label>악보 파일 (.xml / .mxl, 또는 Finale <b>.musx</b> — 실험적)</label>
+    <label>악보 파일 (.xml / .mxl, 또는 Finale <b>.musx</b> 직접 — 베타)</label>
     <div id="drop" class="drop">여기로 파일을 끌어다 놓거나 클릭해서 선택<br>
-      <span class="muted">권장: Finale <b>파일 → MusicXML 내보내기</b>(.xml/.mxl). <b>.musx</b>는 자체 변환기 <b>1단계(디코딩)</b> 검증 중 — 넣으면 EnigmaXML 추출을 시험합니다.</span></div>
+      <span class="muted"><b>.musx</b>를 바로 넣으면 자체 변환기가 읽습니다(베타 — 단성·기본 기보). 정확이 중요하면 Finale <b>파일 → MusicXML 내보내기</b>(.xml/.mxl) 권장.</span></div>
     <input id="file" type="file" accept=".xml,.musicxml,.mxl,.musx" style="display:none">
     <div id="fileInfo" class="muted"></div>
     <label style="margin-top:10px">곡 특성·배경(악상) <span class="muted">(분위기·의도 등 참고 맥락 — AI가 융통성 있게 활용)</span></label>
@@ -128,7 +128,8 @@ loadCfg();
 
 // ---- 파일 처리 ----
 let parsedSummary = "";
-let lastEnigmaXml = ""; // .musx 디코딩 결과(1단계 검증용)
+let lastEnigmaXml = ""; // .musx 디코딩 결과(원시 EnigmaXML)
+let lastMusicXml = ""; // .musx → 변환된 MusicXML
 const drop=$("drop"), fileInput=$("file");
 drop.onclick=()=>fileInput.click();
 drop.ondragover=e=>{e.preventDefault();drop.classList.add("hl");};
@@ -142,19 +143,21 @@ async function readFile(file){
     $("fileInfo").innerHTML='<span class="err">구형 <b>.mus</b> 는 미지원입니다. Finale에서 <b>MusicXML 내보내기</b>(.xml/.mxl)로 넣으세요.</span>';
     parsedSummary=""; return;
   }
-  if(/\.musx$/.test(nm)){ // Finale .musx → EnigmaXML 디코딩(변환기 1단계)
+  if(/\.musx$/.test(nm)){ // Finale .musx → EnigmaXML → MusicXML (자체 변환, 베타)
     try{
-      $("fileInfo").textContent="Finale .musx 디코딩 중…";
-      const enigma=await musxToEnigmaXml(await file.arrayBuffer());
-      lastEnigmaXml=enigma; parsedSummary=""; // MusicXML 변환(2단계)은 아직
-      const looksXml=/<\?xml|<[A-Za-z]/.test(enigma);
-      $("fileInfo").innerHTML='✓ '+esc(file.name)+' — EnigmaXML 추출 '+(looksXml?'성공':'(검증 필요)')+
-        ' ('+enigma.length.toLocaleString()+'자) <button type="button" class="stbtn" id="dlEnigma">EnigmaXML 내려받기</button>'+
-        '<br><span class="muted">⚙ .musx→MusicXML 변환기 <b>1단계(디코딩)</b> 검증용 — 받은 파일이 유효한 Finale XML인지 확인해 주세요. 악보 입력용 MusicXML 변환은 다음 단계입니다.</span>';
+      $("fileInfo").textContent="Finale .musx 디코딩·변환 중…";
+      lastEnigmaXml=await musxToEnigmaXml(await file.arrayBuffer());
+      lastMusicXml=enigmaToMusicXml(lastEnigmaXml);
+      const s=parseMusicXml(lastMusicXml); parsedSummary=s.summary; // 기존 파이프라인으로 AI 입력
+      $("fileInfo").innerHTML='✓ '+esc(file.name)+' <span class="muted">(.musx 자체변환 — 베타)</span><br>'+esc(s.head)+
+        '<br><button type="button" class="stbtn" id="dlMxl">MusicXML 내려받기</button> '+
+        '<button type="button" class="stbtn" id="dlEnigma">EnigmaXML</button>'+
+        '<br><span class="muted">⚠ 베타: 단성(레이어1)·기본 기보만 변환. 음역(옥타브)·세부는 Finale와 대조 확인. 정확이 중요하면 Finale의 MusicXML 내보내기를 쓰세요.</span>';
+      const a=$("dlMxl"); if(a) a.onclick=()=>downloadFile(lastMusicXml, file.name.replace(/\.musx$/i,"")+".musicxml","application/vnd.recordare.musicxml+xml");
       const b=$("dlEnigma"); if(b) b.onclick=()=>downloadFile(lastEnigmaXml, file.name.replace(/\.musx$/i,"")+".enigmaxml","application/xml");
     }catch(err){
-      parsedSummary=""; lastEnigmaXml="";
-      $("fileInfo").innerHTML='<span class="err">.musx 디코딩 실패: '+esc(err.message)+'</span><br><span class="muted">Finale의 <b>MusicXML 내보내기</b>(.xml/.mxl)로 넣으시면 바로 됩니다.</span>';
+      parsedSummary=""; lastEnigmaXml=""; lastMusicXml="";
+      $("fileInfo").innerHTML='<span class="err">.musx 변환 실패: '+esc(err.message)+'</span><br><span class="muted">Finale의 <b>MusicXML 내보내기</b>(.xml/.mxl)로 넣으시면 바로 됩니다.</span>';
     }
     return;
   }
@@ -241,6 +244,71 @@ async function musxToEnigmaXml(buf){
   const data=denigmaDecode(await zipReadBytes(z,sd)); // 난독화 해제
   const s=new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip"));
   return new TextDecoder().decode(await new Response(s).arrayBuffer()); // gunzip → EnigmaXML
+}
+
+// ── EnigmaXML → MusicXML (변환기 2단계, 베타) ──────────────────────────────
+// 실제 musxdom 샘플로 Node 검증. 단성(레이어1)·기본 기보 우선. 스키마·출처 MUSX-CONVERTER.md.
+function mxKids(el,tag){ const o=[]; for(let n=el.firstChild;n;n=n.nextSibling){ if(n.nodeType===1&&n.nodeName===tag) o.push(n);} return o; }
+function mxKid(el,tag){ for(let n=el.firstChild;n;n=n.nextSibling){ if(n.nodeType===1&&n.nodeName===tag) return n;} return null; }
+function mxText(el,tag){ const k=el&&mxKid(el,tag); return k? k.textContent.trim():null; }
+function mxHas(el,tag){ return !!(el&&mxKid(el,tag)); }
+function mxKeyAlter(step,fifths){ const sh=["F","C","G","D","A","E","B"],fl=["B","E","A","D","G","C","F"];
+  if(fifths>0) return sh.slice(0,fifths).includes(step)?1:0; if(fifths<0) return fl.slice(0,-fifths).includes(step)?-1:0; return 0; }
+function mxPitch(harmLev,harmAlt,fifths){ // harmLev 는 으뜸음(가온다 옥타브) 기준 변위
+  const tonicOffset=((fifths*4)%7+7)%7, abs=harmLev+tonicOffset, i=((abs%7)+7)%7, step="CDEFGAB"[i];
+  return {step,octave:4+Math.floor(abs/7),alter:mxKeyAlter(step,fifths)+harmAlt}; }
+const MX_TYPES={32768:"maxima",16384:"long",8192:"breve",4096:"whole",2048:"half",1024:"quarter",512:"eighth",256:"16th",128:"32nd",64:"64th",32:"128th",16:"256th"};
+function mxTypeDots(edu){ let top=1; while(top*2<=edu) top*=2; let dots=0,rem=edu-top,d=top;
+  while(rem>0){ d=Math.floor(d/2); if(d>0&&rem>=d){dots++;rem-=d;} else break; } return {type:MX_TYPES[top]||"quarter",dots}; }
+function enigmaToMusicXml(enigma){
+  const doc=new DOMParser().parseFromString(enigma,"application/xml");
+  if(!doc.getElementsByTagName("finale")[0]) throw new Error("EnigmaXML(finale) 형식이 아닙니다");
+  const A=t=>Array.from(doc.getElementsByTagName(t));
+  const entries={};
+  for(const e of A("entry")) entries[e.getAttribute("entnum")]={
+    num:e.getAttribute("entnum"), next:e.getAttribute("next"),
+    dura:parseInt(mxText(e,"dura")||"0",10), isNote:mxHas(e,"isNote"),
+    notes:mxKids(e,"note").map(n=>({harmLev:parseInt(mxText(n,"harmLev")||"0",10),harmAlt:parseInt(mxText(n,"harmAlt")||"0",10),tieStart:mxHas(n,"tieStart"),tieEnd:mxHas(n,"tieEnd")})) };
+  const tuplets={};
+  for(const t of A("tupletDef")) tuplets[t.getAttribute("entnum")]={symNum:parseInt(mxText(t,"symbolicNum")||"0",10),symDur:parseInt(mxText(t,"symbolicDur")||"0",10),refNum:parseInt(mxText(t,"refNum")||"0",10),refDur:parseInt(mxText(t,"refDur")||"0",10)};
+  const measures=[];
+  for(const m of A("measSpec")){ const ks=mxKid(m,"keySig"); let f=0; if(ks){ f=parseInt(mxText(ks,"key")||"0",10)&0xFF; if(f>127)f-=256; }
+    measures.push({cmper:parseInt(m.getAttribute("cmper"),10),beats:parseInt(mxText(m,"beats")||"4",10),divbeat:parseInt(mxText(m,"divbeat")||"1024",10),fifths:f}); }
+  measures.sort((a,b)=>a.cmper-b.cmper);
+  const frames={}; for(const f of A("frameSpec")){ const c=f.getAttribute("cmper"); if(!frames[c]) frames[c]={start:mxText(f,"startEntry"),end:mxText(f,"endEntry")}; }
+  const gf={}; for(const g of A("gfhold")) gf[g.getAttribute("cmper1")+":"+g.getAttribute("cmper2")]={clefID:parseInt(mxText(g,"clefID")||"0",10),f:[mxText(g,"frame1"),mxText(g,"frame2"),mxText(g,"frame3"),mxText(g,"frame4")]};
+  const ss=new Set(); for(const k in gf){ const s=parseInt(k.split(":")[0],10); if(s>0&&s<32767) ss.add(s); }
+  const staves=[...ss].sort((a,b)=>a-b); if(!staves.length) staves.push(1);
+  const DIV=1024;
+  const walk=fc=>{ const fr=frames[fc]; if(!fr) return []; const o=[]; let c=fr.start,g=0; while(c&&c!=="0"&&entries[c]&&g++<10000){ o.push(entries[c]); if(c===fr.end) break; c=entries[c].next; } return o; };
+  let pl="",body="";
+  staves.forEach((st,si)=>{
+    const pid="P"+(si+1);
+    pl+='  <score-part id="'+pid+'"><part-name>Staff '+st+'</part-name></score-part>\n';
+    body+=' <part id="'+pid+'">\n';
+    measures.forEach((meas,mi)=>{
+      body+='  <measure number="'+(mi+1)+'">\n';
+      const h=gf[st+":"+meas.cmper], den=Math.round(4096/meas.divbeat);
+      if(mi===0){ const clef=(h&&h.clefID===3)?'<sign>F</sign><line>4</line>':'<sign>G</sign><line>2</line>';
+        body+='   <attributes><divisions>'+DIV+'</divisions><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time><clef>'+clef+'</clef></attributes>\n'; }
+      else if(h){ body+='   <attributes><key><fifths>'+meas.fifths+'</fifths></key><time><beats>'+meas.beats+'</beats><beat-type>'+den+'</beat-type></time></attributes>\n'; }
+      const ents=h?walk(h.f[0]):[]; let tupLeft=0,tr=null; // 레이어1(frame1)만 — 다층은 다음 단계
+      for(const en of ents){
+        if(tuplets[en.num]){ tr=tuplets[en.num]; tupLeft=tr.symNum*tr.symDur; }
+        let dur=en.dura,tm="";
+        if(tupLeft>0&&tr){ dur=Math.round(en.dura*(tr.refNum*tr.refDur)/(tr.symNum*tr.symDur)); tm='<time-modification><actual-notes>'+tr.symNum+'</actual-notes><normal-notes>'+tr.refNum+'</normal-notes></time-modification>'; tupLeft-=en.dura; if(tupLeft<=0) tr=null; }
+        const td=mxTypeDots(en.dura), dots='<dot/>'.repeat(td.dots);
+        if(!en.isNote){ body+='   <note><rest/><duration>'+dur+'</duration><type>'+td.type+'</type>'+dots+'</note>\n'; continue; }
+        en.notes.forEach((nt,ni)=>{ const p=mxPitch(nt.harmLev,nt.harmAlt,meas.fifths);
+          const tie=(nt.tieStart?'<tie type="start"/>':'')+(nt.tieEnd?'<tie type="stop"/>':'');
+          const tied=(nt.tieStart?'<tied type="start"/>':'')+(nt.tieEnd?'<tied type="stop"/>':'');
+          body+='   <note>'+(ni>0?'<chord/>':'')+'<pitch><step>'+p.step+'</step>'+(p.alter?'<alter>'+p.alter+'</alter>':'')+'<octave>'+p.octave+'</octave></pitch><duration>'+dur+'</duration>'+tie+'<type>'+td.type+'</type>'+dots+tm+(tied?'<notations>'+tied+'</notations>':'')+'</note>\n'; });
+      }
+      body+='  </measure>\n';
+    });
+    body+=' </part>\n';
+  });
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<score-partwise version="3.1">\n <part-list>\n'+pl+' </part-list>\n'+body+'</score-partwise>\n';
 }
 
 // ---- MusicXML → 요약 ----
