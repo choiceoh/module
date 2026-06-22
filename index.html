@@ -378,22 +378,24 @@ function noteTok(n,divisions){
   else if(unp) nm="x"+(txt(unp,"display-step")||"")+(txt(unp,"display-octave")||""); // 타악(무음정)
   else return null;
   if(n.getElementsByTagName("chord").length) nm="+"+nm; // 화음 구성음
-  let lyr=""; const ls=n.getElementsByTagName("lyric"); // 가사(절별 음절; 엘리전 등 조각 연결)
-  for(let i=0;i<ls.length;i++){ let t=""; const tx=ls[i].getElementsByTagName("text"); for(let j=0;j<tx.length;j++) t+=tx[j].textContent; if(t) lyr+="「"+t+"」"; }
+  let lyr=""; const ls=n.getElementsByTagName("lyric"); // 가사(절별 음절; 엘리전 조각 연결, 멜리스마 extend)
+  for(let i=0;i<ls.length;i++){ let t=""; const tx=ls[i].getElementsByTagName("text"); for(let j=0;j<tx.length;j++) t+=tx[j].textContent;
+    if(!t && ls[i].getElementsByTagName("extend").length) t="‿"; if(t) lyr+="「"+t+"」"; } // extend=멜리스마 이음
   return nm+suf+lyr;
 }
 // 셈여림/지시어(<direction>) → 마커. 예: ⟨f⟩ ⟨cresc.⟩ ⟨<⟩(헤어핀) ⟨♩=120⟩. 모든 direction-type 수집.
 function dirMark(d){
-  let mk=""; const add=s=>{ if(s) mk+=(mk?" ":"")+s; };
+  let mk="", hasTempo=false; const add=s=>{ if(s) mk+=(mk?" ":"")+s; };
   const dts=d.getElementsByTagName("direction-type");
   for(let i=0;i<dts.length;i++){ const dt=dts[i];
     const dyn=dt.getElementsByTagName("dynamics")[0];
     if(dyn){ let s=""; for(let c=dyn.firstChild;c;c=c.nextSibling){ if(c.nodeType===1) s+=(c.nodeName==="other-dynamics"?(c.textContent||"").trim():c.nodeName); } add(s); }
-    const w=dt.getElementsByTagName("words")[0]; if(w&&w.textContent.trim()) add(w.textContent.trim());
+    const w=dt.getElementsByTagName("words")[0]; if(w&&w.textContent.trim()) add(w.textContent.trim().slice(0,40)); // 긴 텍스트 절단
     const we=dt.getElementsByTagName("wedge")[0]; if(we){ const t=we.getAttribute("type"); add(t==="crescendo"?"<":t==="diminuendo"?">":t==="stop"?"!":""); }
     const meta=dt.getElementsByTagName("metronome")[0];
-    if(meta){ const pm=txt(meta,"per-minute"); if(pm){ const u=txt(meta,"beat-unit"); const dot=meta.getElementsByTagName("beat-unit-dot").length?".":""; add(({quarter:"♩",eighth:"♪"}[u]||u||"♩")+dot+"="+pm); } }
+    if(meta){ const pm=txt(meta,"per-minute"); if(pm){ const u=txt(meta,"beat-unit"); const dot=meta.getElementsByTagName("beat-unit-dot").length?".":""; add(({quarter:"♩",eighth:"♪"}[u]||u||"♩")+dot+"="+pm); hasTempo=true; } }
   }
+  if(!hasTempo){ const snd=d.getElementsByTagName("sound")[0]; const t=snd&&snd.getAttribute("tempo"); if(t) add("♩="+t); } // 표시 없는 sound 템포
   return mk?"⟨"+mk+"⟩":"";
 }
 function parseMusicXml(xml){
@@ -422,12 +424,15 @@ function parseMusicXml(xml){
       const mr=m.getElementsByTagName("multiple-rest")[0]; // 다중마디 쉼표
       if(mr){ const c=parseInt(mr.textContent||"1",10)||1; measStrs.push("[쉼 "+c+"마디]"); bars+=c; continue; }
       bars++;
-      const streams={}, order=[]; let multiStaff=false;
+      const streams={}, order=[], measMarks=[]; let multiStaff=false;
       for(let ch=m.firstChild; ch; ch=ch.nextSibling){
         if(ch.nodeType!==1) continue;
         const tag=ch.nodeName;
-        if(tag==="direction"){ // 셈여림·지시어를 해당 성부 스트림에 마커로
-          const mk=dirMark(ch); if(mk){ const k=(txt(ch,"staff")||"1")+"/"+(txt(ch,"voice")||"1"); if(!streams[k]){streams[k]=[];order.push(k);} streams[k].push(mk); } continue;
+        if(tag==="direction"){ // 셈여림·지시어 마커(상한에 포함)
+          const mk=dirMark(ch); if(mk){ emitted++; const vAttr=txt(ch,"voice");
+            if(vAttr){ const k=(txt(ch,"staff")||"1")+"/"+vAttr; if(!streams[k]){streams[k]=[];order.push(k);} streams[k].push(mk); }
+            else measMarks.push(mk); } // 성부 없는 지시 = 마디(보표) 전체
+          continue;
         }
         if(tag!=="note" && tag!=="forward") continue; // backup 은 voice/staff 키가 위치 보존
         if(tag==="note" && ch.getElementsByTagName("grace").length) continue;
@@ -443,7 +448,8 @@ function parseMusicXml(xml){
         if(!multi) return streams[k].join(" ");
         const p=k.split("/"); return (multiStaff?"s"+p[0]:"")+"v"+p[1]+" "+streams[k].join(" ");
       });
-      if(vs.length) measStrs.push(vs.join(" ‖ "));
+      const body2=(measMarks.length?measMarks.join(" ")+(vs.length?" ":""):"")+vs.join(" ‖ ");
+      if(body2) measStrs.push(body2);
     }
     lines.push("["+(names[id]||id)+"] ("+bars+"마디"+(trunc?"+":"")+") "+measStrs.join(" | ")+(trunc?" …":""));
   }
