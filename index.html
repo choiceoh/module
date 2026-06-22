@@ -378,7 +378,20 @@ function noteTok(n,divisions){
   else if(unp) nm="x"+(txt(unp,"display-step")||"")+(txt(unp,"display-octave")||""); // 타악(무음정)
   else return null;
   if(n.getElementsByTagName("chord").length) nm="+"+nm; // 화음 구성음
-  return nm+suf;
+  let lyr=""; const ls=n.getElementsByTagName("lyric"); // 가사(절별 음절)
+  for(let i=0;i<ls.length;i++){ const t=txt(ls[i],"text"); if(t) lyr+="「"+t+"」"; }
+  return nm+suf+lyr;
+}
+// 셈여림/지시어(<direction>) → 마커. 예: ⟨f⟩ ⟨cresc.⟩ ⟨<⟩(헤어핀).
+function dirMark(d){
+  const dt=d.getElementsByTagName("direction-type")[0]; if(!dt) return "";
+  let mk="";
+  const dyn=dt.getElementsByTagName("dynamics")[0];
+  if(dyn) for(let c=dyn.firstChild;c;c=c.nextSibling){ if(c.nodeType===1) mk+=c.nodeName; }
+  const w=dt.getElementsByTagName("words")[0]; if(w&&w.textContent.trim()) mk+=(mk?" ":"")+w.textContent.trim();
+  const we=dt.getElementsByTagName("wedge")[0]; if(we){ const t=we.getAttribute("type"); mk+=(t==="crescendo"?"<":t==="diminuendo"?">":t==="stop"?"!":""); }
+  const meta=d.getElementsByTagName("metronome")[0]; if(meta){ const u=txt(meta,"beat-unit"),pm=txt(meta,"per-minute"); if(pm) mk+=(mk?" ":"")+"♩="+pm; }
+  return mk?"⟨"+mk+"⟩":"";
 }
 function parseMusicXml(xml){
   const doc=new DOMParser().parseFromString(xml,"application/xml");
@@ -410,6 +423,9 @@ function parseMusicXml(xml){
       for(let ch=m.firstChild; ch; ch=ch.nextSibling){
         if(ch.nodeType!==1) continue;
         const tag=ch.nodeName;
+        if(tag==="direction"){ // 셈여림·지시어를 해당 성부 스트림에 마커로
+          const mk=dirMark(ch); if(mk){ const k=(txt(ch,"staff")||"1")+"/"+(txt(ch,"voice")||"1"); if(!streams[k]){streams[k]=[];order.push(k);} streams[k].push(mk); } continue;
+        }
         if(tag!=="note" && tag!=="forward") continue; // backup 은 voice/staff 키가 위치 보존
         if(tag==="note" && ch.getElementsByTagName("grace").length) continue;
         if(emitted>=MAXN){ trunc=true; break; }
