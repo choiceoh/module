@@ -30,6 +30,9 @@
 - 각진 느낌 깨기: 비대칭·메기고받기·점층 가속·엇박. 타악은 **구문(punctuation)** 으로.
 - **장단별 구음·박·한배 실전 템플릿**(진양조~휘모리·굿거리·세마치·엇모리):
   `references/genres/creative-art-music/jangdan-patterns.md`.
+- **리듬을 *작곡 재료*로 다루는 작법**(소박·박·장단·각 위계와 기경결해, 한배의 신축=밀고
+  당기기, 리듬의 확대축소·장단 전이·복장단·해체, 짜임새 합성 리듬, 무박, 미시리듬, 기보
+  함정): `references/genres/creative-art-music/rhythm-craft.md`. ← *리듬 깊이는 여기*.
 
 ## 4. 국악관현악 — 탁함과 밸런스 → `creative-art-music/gugak-orchestration.md`
 - **저음은 한 줄로** 굵게, 화성은 중·고음역에 성기게. **유니즌 헤테로포니**가 광채.

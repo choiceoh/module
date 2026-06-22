@@ -44,6 +44,7 @@
 - ✗ 타악을 균질 배경으로 깔기 — 구문으로 써야 산다.
 
 ### 교차참조
-허브 `../korean-creative-art-music.md` · 장구 `../../instrument-idiom/korean/janggu.md`
-· 산조 한배 `../sanjo/00-index.md` · 텍스처·여백 `sigimsae-texture.md` · 복합박
-`../../rhythm-groove/odd-meters-polyrhythm.md`
+허브 `../korean-creative-art-music.md` · **리듬 작법 깊이(위계·전개변형·밀당·무박)
+`rhythm-craft.md`** · 장단 패턴/구음 `jangdan-patterns.md` · 장구
+`../../instrument-idiom/korean/janggu.md` · 산조 한배 `../sanjo/00-index.md` · 텍스처·여백
+`sigimsae-texture.md` · 복합박 `../../rhythm-groove/odd-meters-polyrhythm.md`
