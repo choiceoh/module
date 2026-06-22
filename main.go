@@ -9,6 +9,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -332,6 +333,11 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	var readDocs []string
 
 	for i := 0; i < maxIters; i++ {
+		// 클라이언트가 연결을 끊었으면(탭 닫기 등) 더 일하지 않는다 — 남은 반복의
+		// 공급자 호출·문서 읽기를 멈춰 토큰·자원 낭비를 막는다.
+		if r.Context().Err() != nil {
+			return
+		}
 		payload := map[string]any{
 			"model": req.Model, "temperature": 0.8, "messages": messages, "stream": true,
 		}
@@ -351,7 +357,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		send(map[string]any{"type": "progress", "msg": "생각 중…"})
 		// 최종 답 토큰은 도착하는 대로 delta 로 흘려보낸다. 도구 호출 턴은 보통 content 가
 		// 비어 있어 흘려보낼 게 없다.
-		content, tcs, err := streamProvider(req, body, func(s string) {
+		content, tcs, err := streamProvider(r.Context(), req, body, func(s string) {
 			send(map[string]any{"type": "delta", "text": s})
 		})
 		if err != nil {
@@ -422,9 +428,9 @@ type streamChunk struct {
 
 // streamProvider 는 stream:true 로 공급자를 호출하고, content 델타를 onContent 로
 // 흘려보내며, 누적된 (content, tool_calls) 를 돌려준다.
-func streamProvider(req uiReq, body []byte, onContent func(string)) (string, []tcAccum, error) {
+func streamProvider(ctx context.Context, req uiReq, body []byte, onContent func(string)) (string, []tcAccum, error) {
 	url := strings.TrimRight(req.BaseURL, "/") + "/chat/completions"
-	hr, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return "", nil, err
 	}
