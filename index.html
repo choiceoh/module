@@ -56,7 +56,7 @@
   .md th,.md td { border:1px solid var(--line); padding:5px 9px; text-align:left; }
   .md th { background:var(--bub); }
   /* 악보 (오선보는 흰 바탕 유지) */
-  .score { background:#fff; margin:12px 0 4px; overflow-x:auto; border-radius:8px; padding:4px; }
+  .score { background:#fff; color:#1a1a1a; margin:12px 0 4px; overflow-x:auto; border-radius:8px; padding:4px; }
   .score svg { max-width:100%; height:auto; }
   .abcjs-note_selected, .abcjs-highlight { fill:var(--accent); }
   .scoretools { margin:4px 0 8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -535,7 +535,7 @@ function mdToHtml(raw){
     .replace(/`([^`]+)`/g,'<code>$1</code>')
     .replace(/\*\*([^*]+?)\*\*/g,'<strong>$1</strong>')
     .replace(/(^|[^*])\*([^*\n]+?)\*/g,'$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,txt,url)=>'<a href="'+url.replace(/"/g,"%22").replace(/'/g,"%27")+'" target="_blank" rel="noopener">'+txt+'</a>');
   const L=E(raw).replace(/\r/g,"").split("\n"), o=[], blank=s=>/^\s*$/.test(s); let i=0;
   while(i<L.length){
     const ln=L[i];
