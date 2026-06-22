@@ -366,15 +366,17 @@ function tokenizeVoice(s, ctx){
     if(c===" "||c==="\t"||c==="\\"){ i++; continue; }
     if(c===">"||c==="<") throw new Error("브로큰 리듬(>,<)");
     if(c==="{") throw new Error("꾸밈음 {}");
+    if(c==="-") throw new Error("타이(-)"); // 재타격으로 잘못 내보내느니 ABC 복사로
     if(c==="("){ if(/\d/.test(s[i+1]||"")) throw new Error("잇단음표"); i++; continue; } // 슬러 시작 무시
     if(c===")"){ i++; continue; }
-    if(c==="-"){ i++; continue; } // 타이는 단순화(음 유지)
     if(c==="!"){ const j=s.indexOf("!",i+1); if(j<0)throw new Error("기보(!)"); i=j+1; continue; }
     if(c==='"'){ const j=s.indexOf('"',i+1); if(j<0)throw new Error('기보(")'); i=j+1; continue; }
-    if(c==="|"){ i++; while(i<s.length&&(s[i]==="|"||s[i]==="]"||s[i]===":"))i++; if(cur.length)push(); continue; }
-    if(c===":"){ i++; while(i<s.length&&(s[i]===":"||s[i]==="|"))i++; if(cur.length)push(); continue; }
+    if(c==="|"){ i++; if(s[i]===":") throw new Error("반복마디(|:)"); while(i<s.length&&(s[i]==="|"||s[i]==="]"))i++; if(cur.length)push(); continue; }
+    if(c===":") throw new Error("반복마디(:|)"); // |: :| :: 등 반복 구조는 미지원
     if(c==="]"){ i++; continue; }
     if(c==="["){
+      if(s[i+1]==="|"||s[i+1]===":") throw new Error("특수 마디([|)"); // [| 는 화음이 아니라 마디
+      if(/^\[V:/.test(s.slice(i))) throw new Error("인라인 성부([V:])");
       if(/^\[[A-Za-z]:/.test(s.slice(i))){ const j=s.indexOf("]",i); if(j<0)throw new Error("인라인 필드"); i=j+1; continue; }
       const j=s.indexOf("]",i); if(j<0) throw new Error("화음 [ ]");
       const inner=s.slice(i+1,j); i=j+1; const dur=readDuration(s,i); i=dur.next;
@@ -382,8 +384,10 @@ function tokenizeVoice(s, ctx){
       while(k<inner.length){ if(inner[k]===" "){k++;continue;} const n=readNote(inner,k); k=n.next; cur.push(noteXml(n,dur,ctx,measAcc,!first)); first=false; }
       continue;
     }
-    if(c==="z"||c==="Z"||c==="x"){ i++; const dur=readDuration(s,i); i=dur.next; cur.push(restXml(dur,ctx)); continue; }
-    if(/[A-Ga-g]/.test(c)){ const n=readNote(s,i); i=n.next; const dur=readDuration(s,i); i=dur.next; cur.push(noteXml(n,dur,ctx,measAcc,false)); continue; }
+    if(c==="Z") throw new Error("전체쉼표(Z)"); // 마디 전체 쉼표는 미지원(길이 다름)
+    if(c==="z"||c==="x"){ i++; const dur=readDuration(s,i); i=dur.next; cur.push(restXml(dur,ctx)); continue; }
+    // 음표: 선행 임시표(^ _ =)도 음표의 시작이다 — readNote 가 임시표+음이름을 함께 읽는다.
+    if("^_=".includes(c)||/[A-Ga-g]/.test(c)){ const n=readNote(s,i); i=n.next; const dur=readDuration(s,i); i=dur.next; cur.push(noteXml(n,dur,ctx,measAcc,false)); continue; }
     throw new Error("미지원 기호 '"+c+"'");
   }
   if(cur.length) push();
