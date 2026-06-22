@@ -76,9 +76,12 @@ MusicXML/EnigmaXML 내려받기.
 - **변환: 96개 샘플 전부 오류 0·빈 마디 0.**
 - **옥타브 기준 확정**: musxdom 의 `calcNoteProperties` 테스트(`enharmonic_unlinked`→oct4,
   `hidden_keysigs`→oct5)와 대조해 **C4=가온다** 확인.
-- **이조악기**: staffSpec `<transposition><keysig>`(interval·adjust)를 적용해 **표기음**(Finale
-  표시 음높이)과 표기 조표를 출력. `hidden_keysigs`(A클라리넷)에서 musxdom calcNoteProperties의
-  written 값(D♭5·F5·G♭5)과 일치 검증. (비이조 보표는 종전대로.)
+- **이조악기**: staffSpec `<transposition>` 두 방식 모두 — ① **keysig**(interval·adjust:
+  표기음 + 표기 조표) ② **chromatic**(diatonic·alteration: 표기음만, 조표 콘서트 유지).
+  `hidden_keysigs`(A클라리넷)에서 musxdom written 값(D♭5·F5·G♭5)과 일치, 두 방식이 동일
+  표기음(E♭) 산출 교차검증. MusicXML `<transpose>`(diatonic·chromatic·octave-change)도 함께
+  출력해 **실음(sounding)** 보존(가져오기·재생 정확). 7♯/7♭ 초과 표기 조표는 겹올림·겹내림
+  (F𝄪 등)으로 정확히 철자. (비이조 보표는 종전대로.)
 
 ## 상태
 - ✅ 1단계 디코딩 — 구현·**실파일 91/95 byte-일치로 검증**.
@@ -87,11 +90,13 @@ MusicXML/EnigmaXML 내려받기.
 - ✅ 3단계 다층 레이어 + 레이어 내 v1/v2 + 정밀 잇단음표 — 구현·검증.
 - ✅ 악기 이름 — `staffSpec.fullName → textBlock.textID → blockText`(enigma 서식코드 제거)로
   파트명에 실제 악기명(Oboe·Violin 등). AI 입력 요약이 "Staff 1" 대신 악기명으로.
-- ✅ 이조악기 표기음 — staffSpec 이조(interval/adjust) 적용, written 피치·조표. 검증 완료.
+- ✅ 이조악기 표기음 — staffSpec 이조 keysig·chromatic 양식 적용(written 피치·조표) +
+  MusicXML `<transpose>`로 실음 보존 + 7♯/7♭ 초과 시 겹올림/겹내림. 검증 완료.
 - ✅ 타악(percussion) — `staffSpec.notationStyle=="percussion"` 보표는 음높이 대신
   `<unpitched>`(보표 위치=harmLev) + 타악 음자리표로. (창작국악의 사물·모듬북·장단 보표.)
   drumset 샘플 검증. *드럼 이름별 매핑(percMap: 어느 줄=어느 악기)은 다음 단계.*
-- ⏳ 남음: 드럼 이름 매핑(percMap; 위치는 정확)·아티큘레이션·복합박. (가사·셈여림은 요약에서 추출.)
+- ⏳ 남음: 드럼 이름 매핑(percMap; 위치는 정확)·아티큘레이션·복합박·스태프 스타일 구간
+  덮어쓰기(staffStyle: 구간별 이조/기보 변경). (가사·셈여림은 요약에서 추출.)
 
 ### 개발자용 — 회귀 테스트
 `tools/validate-musx.cjs` 로 실파일 검증(디코드 byte 비교 + 변환 오류/빈마디 점검):
