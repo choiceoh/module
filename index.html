@@ -148,13 +148,13 @@ async function readFile(file){
       const enigma=await musxToEnigmaXml(await file.arrayBuffer());
       lastEnigmaXml=enigma; parsedSummary=""; // MusicXML 변환(2단계)은 아직
       const looksXml=/<\?xml|<[A-Za-z]/.test(enigma);
-      $("fileInfo").innerHTML='✓ '+file.name+' — EnigmaXML 추출 '+(looksXml?'성공':'(검증 필요)')+
+      $("fileInfo").innerHTML='✓ '+esc(file.name)+' — EnigmaXML 추출 '+(looksXml?'성공':'(검증 필요)')+
         ' ('+enigma.length.toLocaleString()+'자) <button type="button" class="stbtn" id="dlEnigma">EnigmaXML 내려받기</button>'+
         '<br><span class="muted">⚙ .musx→MusicXML 변환기 <b>1단계(디코딩)</b> 검증용 — 받은 파일이 유효한 Finale XML인지 확인해 주세요. 악보 입력용 MusicXML 변환은 다음 단계입니다.</span>';
       const b=$("dlEnigma"); if(b) b.onclick=()=>downloadFile(lastEnigmaXml, file.name.replace(/\.musx$/i,"")+".enigmaxml","application/xml");
     }catch(err){
       parsedSummary=""; lastEnigmaXml="";
-      $("fileInfo").innerHTML='<span class="err">.musx 디코딩 실패: '+err.message+'</span><br><span class="muted">Finale의 <b>MusicXML 내보내기</b>(.xml/.mxl)로 넣으시면 바로 됩니다.</span>';
+      $("fileInfo").innerHTML='<span class="err">.musx 디코딩 실패: '+esc(err.message)+'</span><br><span class="muted">Finale의 <b>MusicXML 내보내기</b>(.xml/.mxl)로 넣으시면 바로 됩니다.</span>';
     }
     return;
   }
