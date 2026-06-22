@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"embed"
 	"encoding/json"
@@ -284,24 +285,11 @@ var tools = []map[string]any{{
 	},
 }}
 
-// 공급자 응답(필요 부분만)
+// 공급자 응답(에러 파싱용 — 스트리밍 실패 시 본문에서 메시지 추출)
 type provResp struct {
-	Choices []struct {
-		Message json.RawMessage `json:"message"`
-	} `json:"choices"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
-}
-type asstMsg struct {
-	Content   string `json:"content"`
-	ToolCalls []struct {
-		ID       string `json:"id"`
-		Function struct {
-			Name      string `json:"name"`
-			Arguments string `json:"arguments"`
-		} `json:"function"`
-	} `json:"tool_calls"`
 }
 
 func handleChat(w http.ResponseWriter, r *http.Request) {
@@ -318,6 +306,17 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"error": "Base URL·모델·키가 필요합니다."})
 		return
 	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeJSON(w, map[string]any{"error": "이 서버는 스트리밍을 지원하지 않습니다."})
+		return
+	}
+	// Server-Sent Events 로 진행 상황과 답을 토막내어 보낸다(빈 대기 제거).
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	send := func(v any) { b, _ := json.Marshal(v); fmt.Fprintf(w, "data: %s\n\n", b); flusher.Flush() }
 
 	raw := func(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 	messages := []json.RawMessage{
@@ -334,7 +333,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 
 	for i := 0; i < maxIters; i++ {
 		payload := map[string]any{
-			"model": req.Model, "temperature": 0.8, "messages": messages,
+			"model": req.Model, "temperature": 0.8, "messages": messages, "stream": true,
 		}
 		// 마지막 반복에서는 도구를 빼 모델이 반드시 최종 답을 내게 한다 — 반복 한도에
 		// 걸려도 '중단 에러' 대신 지금까지 읽은 문서로 답을 완성하도록(프로 작업 보호).
@@ -343,7 +342,12 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 			payload["tool_choice"] = "auto"
 		}
 		body, _ := json.Marshal(payload)
-		respBytes, status, err := callProvider(req, body)
+		send(map[string]any{"type": "progress", "msg": "생각 중…"})
+		// 최종 답 토큰은 도착하는 대로 delta 로 흘려보낸다. 도구 호출 턴은 보통 content 가
+		// 비어 있어 흘려보낼 게 없다.
+		content, tcs, err := streamProvider(req, body, func(s string) {
+			send(map[string]any{"type": "delta", "text": s})
+		})
 		if err != nil {
 			msg := err.Error()
 			hint := ""
@@ -352,61 +356,133 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 					"③ Base URL 엔드포인트가 맞는지 확인하세요(예: https://api.z.ai/api/paas/v4). " +
 					"공급자가 혼잡하거나 모델이 매우 길게 답하는 경우 발생할 수 있습니다."
 			}
-			writeJSON(w, map[string]any{"error": "공급자 호출 실패: " + msg + hint})
+			send(map[string]any{"type": "error", "error": "공급자 호출 실패: " + msg + hint})
 			return
 		}
-		var pr provResp
-		if e := json.Unmarshal(respBytes, &pr); e != nil {
-			writeJSON(w, map[string]any{"error": fmt.Sprintf("응답 파싱 실패(HTTP %d): %.300s", status, respBytes)})
+		if len(tcs) == 0 { // 도구 호출이 없으면 = 최종 답(이미 delta 로 전송됨)
+			send(map[string]any{"type": "done", "content": content, "docs": readDocs})
 			return
 		}
-		if pr.Error != nil {
-			writeJSON(w, map[string]any{"error": pr.Error.Message})
-			return
+		// assistant 메시지(tool_calls 포함)를 재구성해 재투입
+		var tcList []map[string]any
+		for _, t := range tcs {
+			tcList = append(tcList, map[string]any{
+				"id": t.ID, "type": "function",
+				"function": map[string]any{"name": t.Name, "arguments": t.Args},
+			})
 		}
-		if len(pr.Choices) == 0 {
-			writeJSON(w, map[string]any{"error": fmt.Sprintf("빈 응답(HTTP %d): %.300s", status, respBytes)})
-			return
-		}
-		am := pr.Choices[0].Message
-		messages = append(messages, am) // assistant 메시지(원형 그대로) 재투입
-		var parsed asstMsg
-		json.Unmarshal(am, &parsed)
-		if len(parsed.ToolCalls) == 0 {
-			writeJSON(w, map[string]any{"content": parsed.Content, "docs": readDocs})
-			return
-		}
-		// 도구 호출 처리
-		for _, tc := range parsed.ToolCalls {
+		messages = append(messages, raw(map[string]any{
+			"role": "assistant", "content": content, "tool_calls": tcList,
+		}))
+		// 도구 호출 처리(읽는 문서를 실시간 진행 표시)
+		for _, t := range tcs {
 			var args struct {
 				Path string `json:"path"`
 			}
-			json.Unmarshal([]byte(tc.Function.Arguments), &args)
-			content := readDoc(args.Path)
+			json.Unmarshal([]byte(t.Args), &args)
+			docContent := readDoc(args.Path)
 			readDocs = append(readDocs, args.Path)
+			send(map[string]any{"type": "progress", "msg": "문서 읽는 중", "doc": args.Path})
 			messages = append(messages, raw(map[string]any{
-				"role": "tool", "tool_call_id": tc.ID, "content": content,
+				"role": "tool", "tool_call_id": t.ID, "content": docContent,
 			}))
 		}
 	}
-	writeJSON(w, map[string]any{"error": "도구 호출이 너무 많아 중단(질문을 좁혀보세요)."})
+	send(map[string]any{"type": "error", "error": "도구 호출이 너무 많아 중단(질문을 좁혀보세요)."})
 }
 
-func callProvider(req uiReq, body []byte) ([]byte, int, error) {
+// 누적되는 도구 호출(스트리밍 델타로 조각조각 도착)
+type tcAccum struct{ ID, Name, Args string }
+
+// 공급자 스트리밍 청크(OpenAI 호환 SSE delta 형식)
+type streamChunk struct {
+	Choices []struct {
+		Delta struct {
+			Content   string `json:"content"`
+			ToolCalls []struct {
+				Index    int    `json:"index"`
+				ID       string `json:"id"`
+				Function struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
+		} `json:"delta"`
+	} `json:"choices"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// streamProvider 는 stream:true 로 공급자를 호출하고, content 델타를 onContent 로
+// 흘려보내며, 누적된 (content, tool_calls) 를 돌려준다.
+func streamProvider(req uiReq, body []byte, onContent func(string)) (string, []tcAccum, error) {
 	url := strings.TrimRight(req.BaseURL, "/") + "/chat/completions"
 	hr, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return nil, 0, err
+		return "", nil, err
 	}
 	hr.Header.Set("Content-Type", "application/json")
 	hr.Header.Set("Authorization", "Bearer "+req.APIKey)
+	hr.Header.Set("Accept", "text/event-stream")
 	resp, err := httpClient.Do(hr)
 	if err != nil {
-		return nil, 0, err
+		return "", nil, err
 	}
 	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	return b, resp.StatusCode, err
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 4000))
+		var pe provResp
+		if json.Unmarshal(b, &pe) == nil && pe.Error != nil {
+			return "", nil, fmt.Errorf("%s", pe.Error.Message)
+		}
+		return "", nil, fmt.Errorf("HTTP %d: %.300s", resp.StatusCode, b)
+	}
+	var content strings.Builder
+	var tcs []tcAccum
+	sc := bufio.NewScanner(resp.Body)
+	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "[DONE]" {
+			break
+		}
+		var ch streamChunk
+		if json.Unmarshal([]byte(data), &ch) != nil {
+			continue
+		}
+		if ch.Error != nil {
+			return content.String(), tcs, fmt.Errorf("%s", ch.Error.Message)
+		}
+		if len(ch.Choices) == 0 {
+			continue
+		}
+		d := ch.Choices[0].Delta
+		if d.Content != "" {
+			content.WriteString(d.Content)
+			onContent(d.Content)
+		}
+		for _, t := range d.ToolCalls {
+			for len(tcs) <= t.Index {
+				tcs = append(tcs, tcAccum{})
+			}
+			if t.ID != "" {
+				tcs[t.Index].ID = t.ID
+			}
+			if t.Function.Name != "" {
+				tcs[t.Index].Name = t.Function.Name
+			}
+			tcs[t.Index].Args += t.Function.Arguments
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return content.String(), tcs, err
+	}
+	return content.String(), tcs, nil
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

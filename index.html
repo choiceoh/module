@@ -273,12 +273,41 @@ async function runChat(feedback){
       body:JSON.stringify({ baseUrl:base, apiKey:key, model,
         intent:$("intent").value, constraints:$("constraints").value, score:parsedSummary,
         question:$("question").value, extra:$("extra").value, history }) });
-    const data=await res.json();
-    if(data.error){ throw new Error(data.error); }
-    lastAnswer=data.content||"";
-    renderResponse(lastAnswer);
-    setStatus("완료"+(data.docs&&data.docs.length?(" · 참고문서 "+data.docs.length+"개: "+data.docs.join(", ")):""));
-    $("fb").style.display="block"; $("feedback").value="";
+    // 스트리밍이 아니면(에러 등) JSON 한 방으로 올 수 있다.
+    const ct=res.headers.get("content-type")||"";
+    if(ct.includes("application/json")){
+      const data=await res.json();
+      if(data.error) throw new Error(data.error);
+      lastAnswer=data.content||""; renderResponse(lastAnswer);
+      $("fb").style.display="block"; $("feedback").value="";
+      setStatus("완료"); return;
+    }
+    // SSE 스트림 읽기
+    const reader=res.body.getReader(), dec=new TextDecoder();
+    let buf="", acc="", err=null, done=false;
+    while(true){
+      const {value,done:rdDone}=await reader.read(); if(rdDone) break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf("\n\n"))>=0){
+        const line=buf.slice(0,idx).trim(); buf=buf.slice(idx+2);
+        if(!line.startsWith("data:")) continue;
+        let ev; try{ ev=JSON.parse(line.slice(5).trim()); }catch(_){ continue; }
+        if(ev.type==="delta"){ acc+=ev.text; $("out").className=""; $("out").textContent=acc; }
+        else if(ev.type==="progress"){ setStatus(ev.doc?("문서 읽는 중: "+ev.doc):(ev.msg||"생각 중…")); }
+        else if(ev.type==="done"){
+          const final=acc||ev.content||""; lastAnswer=final; renderResponse(final); done=true;
+          setStatus("완료"+(ev.docs&&ev.docs.length?(" · 참고문서 "+ev.docs.length+"개: "+ev.docs.join(", ")):""));
+          $("fb").style.display="block"; $("feedback").value="";
+        }
+        else if(ev.type==="error"){ err=ev.error; }
+      }
+    }
+    if(err) throw new Error(err);
+    if(!done){ // 스트림이 done 없이 끊김 — 받은 텍스트라도 살린다
+      lastAnswer=acc; if(acc) renderResponse(acc); setStatus(acc?"완료(부분)":"응답 없음",!acc);
+      if(acc){ $("fb").style.display="block"; $("feedback").value=""; }
+    }
   }catch(e){
     if(pushed){ history.splice(history.length-pushed, pushed); } // 실패 시 푸시한 턴 롤백
     $("out").innerHTML='<span class="err">오류: '+e.message+'</span>';
