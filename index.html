@@ -92,7 +92,7 @@
       <div style="margin-top:8px"><button id="refine">피드백 반영해 다시</button>
         <button id="reset" style="background:#999">새 대화로 시작</button></div>
     </div>
-    <p class="muted" style="margin-top:10px">악보 아래 <b>▶ 들어보기</b>(소리 확인 — 인터넷 필요)·<b>ABC 복사</b>·<b>MusicXML 내보내기</b>(베타 — Finale에서 <b>파일 → 가져오기</b>로 열고 확인)로 활용하세요.</p>
+    <p class="muted" style="margin-top:10px">악보 아래 <b>▶ 들어보기</b>(소리 확인 — 인터넷 필요)·<b>ABC 복사</b>·<b>MusicXML 내보내기</b>로 활용하세요. MusicXML은 <b>단순 선율·화음(베타)</b>을 Finale <b>파일 → 가져오기</b>로 — 슬러·타이·반복·코드심볼 등은 변환 대신 <b>ABC 복사</b>를 쓰세요.</p>
   </fieldset>
 
   <p class="muted">AI 호출은 앱 백엔드가 대신합니다(브라우저 직접 호출이 아니라 CORS 문제 없음). 키는 본인 PC에만 저장되며 공유하지 마세요. 공급자가 <b>도구(tool) 호출</b>을 지원해야 합니다(GLM·OpenAI 등).</p>
@@ -106,6 +106,7 @@ const $ = id => document.getElementById(id);
 const STEP_SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 const SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 let audioCtx = null;
+let stopCurrentAudio = null; // 현재 재생 중인 악보를 멈추는 함수(겹침 방지·종료 복원)
 
 // ---- 설정 저장/복원 (앱 설정 파일 우선 + localStorage 백업) ----
 // 키·엔드포인트는 백엔드가 사용자 설정 파일(config.json)에 저장하므로
@@ -272,14 +273,20 @@ function addScoreTools(container, abc, tune){
   const bar=document.createElement("div"); bar.className="scoretools";
   // 들어보기 (abcjs 신스 — 음원 폰트는 온라인에서 받아옴; LLM처럼 인터넷 필요)
   if(tune && window.ABCJS && ABCJS.synth && ABCJS.synth.supportsAudio && ABCJS.synth.supportsAudio()){
-    const play=mkBtn("▶ 들어보기"); let synth=null, playing=false;
+    const play=mkBtn("▶ 들어보기"); let synth=null, endTimer=null;
+    const reset=()=>{ clearTimeout(endTimer); play.textContent="▶ 들어보기"; if(stopCurrentAudio===stop) stopCurrentAudio=null; };
+    const stop=()=>{ try{ if(synth) synth.stop(); }catch(_){ } reset(); };
     play.onclick=async()=>{
       try{
+        if(stopCurrentAudio===stop){ stop(); return; }   // 재생 중 다시 누르면 정지
+        if(stopCurrentAudio) stopCurrentAudio();          // 다른 악보가 재생 중이면 멈춤(겹침 방지)
         if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
         if(audioCtx.state==="suspended") await audioCtx.resume();
-        if(playing){ synth.stop(); playing=false; play.textContent="▶ 들어보기"; return; }
-        if(!synth){ synth=new ABCJS.synth.CreateSynth(); await synth.init({audioContext:audioCtx, visualObj:tune}); await synth.prime(); }
-        await synth.start(); playing=true; play.textContent="⏹ 정지";
+        if(!synth){ synth=new ABCJS.synth.CreateSynth(); await synth.init({audioContext:audioCtx, visualObj:tune}); }
+        const primed=await synth.prime();                 // {duration} 초
+        await synth.start(); stopCurrentAudio=stop; play.textContent="⏹ 정지";
+        const ms=(primed&&primed.duration?primed.duration:0)*1000;
+        if(ms) endTimer=setTimeout(reset, ms+250);        // 자연 종료 시 라벨 복원
       }catch(e){ play.textContent="재생 불가"; play.disabled=true; }
     };
     bar.appendChild(play);
@@ -367,17 +374,18 @@ function tokenizeVoice(s, ctx){
     if(c===">"||c==="<") throw new Error("브로큰 리듬(>,<)");
     if(c==="{") throw new Error("꾸밈음 {}");
     if(c==="-") throw new Error("타이(-)"); // 재타격으로 잘못 내보내느니 ABC 복사로
-    if(c==="("){ if(/\d/.test(s[i+1]||"")) throw new Error("잇단음표"); i++; continue; } // 슬러 시작 무시
-    if(c===")"){ i++; continue; }
+    if(c==="(") throw new Error(/\d/.test(s[i+1]||"")?"잇단음표":"이음줄(슬러)"); // 표현이 사라지지 않게
+    if(c===")") throw new Error("이음줄(슬러)");
     if(c==="!"){ const j=s.indexOf("!",i+1); if(j<0)throw new Error("기보(!)"); i=j+1; continue; }
-    if(c==='"'){ const j=s.indexOf('"',i+1); if(j<0)throw new Error('기보(")'); i=j+1; continue; }
+    if(c==='"') throw new Error("코드심볼/주석(\"...\")"); // 화성 라벨이 사라지지 않게 ABC 복사로
     if(c==="|"){ i++; if(s[i]===":") throw new Error("반복마디(|:)"); while(i<s.length&&(s[i]==="|"||s[i]==="]"))i++; if(cur.length)push(); continue; }
     if(c===":") throw new Error("반복마디(:|)"); // |: :| :: 등 반복 구조는 미지원
     if(c==="]"){ i++; continue; }
     if(c==="["){
       if(s[i+1]==="|"||s[i+1]===":") throw new Error("특수 마디([|)"); // [| 는 화음이 아니라 마디
-      if(/^\[V:/.test(s.slice(i))) throw new Error("인라인 성부([V:])");
-      if(/^\[[A-Za-z]:/.test(s.slice(i))){ const j=s.indexOf("]",i); if(j<0)throw new Error("인라인 필드"); i=j+1; continue; }
+      // 인라인 필드([K:][M:][L:][V:] 등)는 조/박자/음길이/성부를 곡 중간에 바꿔
+      // 단일 컨텍스트 변환과 어긋난다 → 안전하게 예외(ABC 복사로 대체).
+      if(/^\[[A-Za-z]:/.test(s.slice(i))) throw new Error("인라인 필드([K:/M:/L:/V:])");
       const j=s.indexOf("]",i); if(j<0) throw new Error("화음 [ ]");
       const inner=s.slice(i+1,j); i=j+1; const dur=readDuration(s,i); i=dur.next;
       let k=0, first=true;
@@ -397,21 +405,26 @@ function tokenizeVoice(s, ctx){
 function abcToMusicXml(abc){
   const lines=abc.split(/\r?\n/);
   let mb=4,mt=4,L=null,fifths=0,title="sojeongcompose";
-  const voices={}, order=[]; let curV="1";
+  const voices={}, order=[]; let curV="1"; let bodyStarted=false, sawX=false;
   const ensure=v=>{ if(!voices[v]){voices[v]=[];order.push(v);} };
   for(const raw of lines){
     const line=raw.trim(); if(!line||line.startsWith("%")) continue;
     const hm=line.match(/^([A-Za-z]):\s*(.*)$/);
     if(hm && hm[1].length===1 && "XTMLKVQWwsZNORrPIidU".includes(hm[1])){
       const f=hm[1], v=hm[2].trim();
-      if(f==="M"){ if(/^C\|/.test(v)){mb=2;mt=2;} else if(/^C/.test(v)){mb=4;mt=4;} else {const m=v.match(/(\d+)\s*\/\s*(\d+)/); if(m){mb=+m[1];mt=+m[2];}} }
-      else if(f==="L"){ const m=v.match(/(\d+)\s*\/\s*(\d+)/); if(m)L=[+m[1],+m[2]]; }
-      else if(f==="K"){ fifths=parseKey(v).fifths; }
+      if(f==="X"){ if(sawX) throw new Error("다중 곡(X:)"); sawX=true; } // 한 블록에 곡 둘 이상
+      else if(f==="M"||f==="L"||f==="K"){
+        // 조/박자/음길이를 곡 중간에 바꾸면 단일 컨텍스트 변환과 어긋난다 → 예외
+        if(bodyStarted) throw new Error("곡 중간 "+f+": 변경");
+        if(f==="M"){ if(/^C\|/.test(v)){mb=2;mt=2;} else if(/^C/.test(v)){mb=4;mt=4;} else {const m=v.match(/(\d+)\s*\/\s*(\d+)/); if(m){mb=+m[1];mt=+m[2];}} }
+        else if(f==="L"){ const m=v.match(/(\d+)\s*\/\s*(\d+)/); if(m)L=[+m[1],+m[2]]; }
+        else { fifths=parseKey(v).fifths; }
+      }
       else if(f==="T"){ if(v)title=v; }
       else if(f==="V"){ curV=(v.split(/\s+/)[0]||"1"); ensure(curV); }
       continue;
     }
-    ensure(curV); voices[curV].push(line);
+    ensure(curV); voices[curV].push(line); bodyStarted=true;
   }
   if(order.length===0) ensure("1");
   if(!L) L=(mb/mt<0.75)?[1,16]:[1,8];
