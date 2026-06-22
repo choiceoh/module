@@ -46,8 +46,7 @@ MusicXML/EnigmaXML 내려받기.
   15음이 v1[5]+v2[10]으로 정확히 분리됨.
 - 실제 musxdom 샘플 **전체 96개로 검증: 빈 마디 0·변환 오류 0**.
 
-**아직(다음)**: 셈여림/가사/아티큘레이션·**타악기**(musx2mxl 버그 지점)·복합박·이조악기·
-음역 절대옥타브(실 Finale 대조 필요).
+**아직(다음)**: 셈여림/가사/아티큘레이션·드럼 이름 매핑(percMap)·복합박·이조악기(표기음).
 
 ## EnigmaXML 인코딩 메모 (2·3단계용)
 - **음길이**: EDU 단위. 4분음표=1024, 온음표=4096. 디코딩: **최상위 set 비트 = 음표 종류,
@@ -87,7 +86,10 @@ MusicXML/EnigmaXML 내려받기.
 - ✅ 3단계 다층 레이어 + 레이어 내 v1/v2 + 정밀 잇단음표 — 구현·검증.
 - ✅ 악기 이름 — `staffSpec.fullName → textBlock.textID → blockText`(enigma 서식코드 제거)로
   파트명에 실제 악기명(Oboe·Violin 등). AI 입력 요약이 "Staff 1" 대신 악기명으로.
-- ⏳ 다음: 셈여림·가사·아티큘레이션·타악기·복합박·이조악기(표기음).
+- ✅ 타악(percussion) — `staffSpec.notationStyle=="percussion"` 보표는 음높이 대신
+  `<unpitched>`(보표 위치=harmLev) + 타악 음자리표로. (창작국악의 사물·모듬북·장단 보표.)
+  drumset 샘플 검증. *드럼 이름별 매핑(percMap: 어느 줄=어느 악기)은 다음 단계.*
+- ⏳ 다음: 셈여림·가사·아티큘레이션·드럼 이름 매핑(percMap)·복합박·이조악기(표기음).
 
 ### 개발자용 — 회귀 테스트
 `tools/validate-musx.cjs` 로 실파일 검증(디코드 byte 비교 + 변환 오류/빈마디 점검):
